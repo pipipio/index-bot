@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<message>
+    <msg>
+        <type>
+            start
+        </type>
+        <content>
+            Telegram语言包设置：
+            【 &lt;a href="tg://setlanguage?lang=zhcncc" &gt;简体中文&lt;/a&gt; | &lt;a href="tg://setlanguage?lang=zh-hant-beta" &gt;繁體中文&lt;/a&gt; | &lt;a href="tg://setlanguage?lang=en" &gt;English&lt;/a&gt; 】
+
+            收录信息及时知：&lt;a href="https://t.me/zh_secretary" &gt;ES-索引公告板&lt;/a&gt;
+
+            使用 /list 命令开始查询。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            enroll
+        </type>
+        <content>
+            提交收录申请前，请先看&lt;a href="https://t.me/zh_secretary/2"&gt;收录规则&lt;/a&gt;。
+            &lt;b&gt;群组：&lt;/b&gt;请将机器人添加至群组中按照提示操作；
+            &lt;b&gt;频道：&lt;/b&gt;请直接回复频道ID，例：
+
+            @se_talk
+            https://t.me/se_talk
+        </content>
+    </msg>
+    <msg>
+        <type>
+            enroll-update-title
+        </type>
+        <content>
+            请告诉我新的标题，使用 /cancel 取消当前操作。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            enroll-update-about
+        </type>
+        <content>
+            请告诉我新的简介，使用 /cancel 取消当前操作。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            enroll-update-tags
+        </type>
+        <content>
+            请告诉我新的标签，不要恶意使用标签哦，使用 /cancel 取消当前操作。
+            标签以”#“开头，多个标签以空格隔开。
+            如：#Telegram #新闻
+        </content>
+    </msg>
+    <msg>
+        <type>
+            enroll-submit
+        </type>
+        <content>
+            已提交，请留意收录结果
+        </content>
+    </msg>
+    <msg>
+        <type>
+            enroll-succeeded
+        </type>
+        <content>
+            恭喜！收录成功！
+        </content>
+    </msg>
+    <msg>
+        <type>
+            enroll-failed
+        </type>
+        <content>
+            很遗憾收录失败！
+        </content>
+    </msg>
+    <msg>
+        <type>
+            list
+        </type>
+        <content>
+            请选择一个您感兴趣的分类，或直接发送关键字查询。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            nothing
+        </type>
+        <content>
+            未查询到相关内容。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            update
+        </type>
+        <content>
+            请以以下格式回复频道ID，索引秘书将会为您更新收录信息，例：
+
+            /update @se_talk
+            /update https://t.me/se_talk
+        </content>
+    </msg>
+    <msg>
+        <type>
+            help
+        </type>
+        <content>
+            ES-索引秘书可以根据类型为您提供已收录的群组或频道，您也可以提交收录申请。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            can-not-understand
+        </type>
+        <content>
+            真是让人猜不透呢~
+        </content>
+    </msg>
+    <msg>
+        <type>
+            cancel
+        </type>
+        <content>
+            当前操作已取消~
+        </content>
+    </msg>
+</message>
