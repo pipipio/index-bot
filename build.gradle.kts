@@ -7,7 +7,7 @@ plugins {
     kotlin("plugin.spring") version "1.4.30"
 }
 
-group = "com.scomarlf"
+group = "com.tgse"
 version = "2.0.0"
 java.sourceCompatibility = JavaVersion.VERSION_11
 
@@ -41,7 +41,7 @@ dependencies {
     // telegram
     api("com.github.pengrad:java-telegram-bot-api:5.0.1")
     // elasticsearch
-    implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.11.1")
+    implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.11.2")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }
