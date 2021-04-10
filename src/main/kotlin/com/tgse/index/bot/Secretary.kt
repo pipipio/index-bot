@@ -181,14 +181,16 @@ class Secretary(
                 val enroll = elasticsearch.getEnroll(id)!!
                 val newEnroll = enroll.copy(status = true)
                 elasticsearch.updateEnroll(newEnroll)
-                applyAwaitStatus(chatId)
+                botProvider.sendDeleteMessage(chatId,messageId)
+                clearAwaitStatus(chatId)
                 val msg = msgFactory.makeReplyMsg(chatId, "enroll-submit")
                 botProvider.send(msg)
             }
             // 取消
             field == "cancel" -> {
                 elasticsearch.deleteEnroll(id)
-                applyAwaitStatus(chatId)
+                botProvider.sendDeleteMessage(chatId,messageId)
+                clearAwaitStatus(chatId)
                 val msg = msgFactory.makeReplyMsg(chatId, "cancel")
                 botProvider.send(msg)
             }
