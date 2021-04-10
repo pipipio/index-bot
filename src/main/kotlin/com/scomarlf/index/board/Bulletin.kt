@@ -1,4 +1,8 @@
 package com.scomarlf.index.board
 
-class Bulletin {
+import com.scomarlf.index.provider.ElasticsearchProvider
+
+class Bulletin(
+    private val elasticsearchProvider: ElasticsearchProvider
+) {
 }

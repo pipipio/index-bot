@@ -6,6 +6,9 @@ import org.dom4j.io.SAXReader
 import org.springframework.stereotype.Component
 import java.io.File
 
+/**
+ * 回执信息
+ */
 @Component
 class Reply {
 

@@ -5,9 +5,10 @@ import com.pengrad.telegrambot.model.Update
 import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.*
+import com.scomarlf.index.MismatchException
 import com.scomarlf.index.datasource.Elasticsearch
-import com.scomarlf.index.datasource.Reply
 import com.scomarlf.index.datasource.Telegram
+import com.scomarlf.index.factory.MsgFactory
 import com.scomarlf.index.provider.BotProvider
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
@@ -17,11 +18,11 @@ import kotlin.collections.HashMap
 @Service
 class Secretary(
     private val botProvider: BotProvider,
-    private val reply: Reply,
-    private val telegram: Telegram,
-    private val elasticsearch: Elasticsearch
+    private val msgFactory: MsgFactory,
+    private val elasticsearch: Elasticsearch,
+    private val telegram: Telegram
 ) {
-    private data class Await(val callbackData: String)
+    private data class Await(val messageId: Int, val callbackData: String)
 
     private val logger = LoggerFactory.getLogger(Secretary::class.java)
     private val awaitStatus = HashMap<Long, Await>()
@@ -38,7 +39,7 @@ class Secretary(
                         return@subscribe
                     // 输入状态
                     val chatId =
-                        if (update.callbackQuery() != null) update.callbackQuery().from().id()
+                        if (update.callbackQuery() != null) update.callbackQuery().from().id().toLong()
                         else update.message().chat().id()
                     val chatAction = SendChatAction(chatId, ChatAction.typing)
                     botProvider.send(chatAction)
@@ -46,6 +47,7 @@ class Secretary(
                     when (true) {
                         update.callbackQuery() != null -> executeByButton(update)
                         update.message().text().startsWith("/") -> executeByCommand(update)
+                        awaitStatus[chatId] != null -> executeByStatus(update)
                         update.message().text().startsWith("@") -> executeByEnroll(update)
                         update.message().text().startsWith("https://t.me/") -> executeByEnroll(update)
                         else -> executeByText(update)
@@ -58,6 +60,7 @@ class Secretary(
             { throwable ->
                 throwable.printStackTrace()
                 logger.error("Secretary.error")
+                botProvider.sendErrorMessage(throwable)
             },
             {
                 logger.error("Secretary.complete")
@@ -80,8 +83,7 @@ class Secretary(
         val telegramMod = telegram.getModFromWeb(id)
         val sendMessage = when (telegramMod) {
             is Telegram.TelegramGroup -> {
-                // 提示添加至群
-
+                // todo：提示添加至群
                 SendMessage(chatId, "msg")
             }
             is Telegram.TelegramChannel, is Telegram.TelegramBot -> {
@@ -100,11 +102,9 @@ class Secretary(
                 )
                 val createEnroll = elasticsearch.addEnroll(enroll)
                 if (!createEnroll) return
-                val msg = botProvider.makeRecordDetail(telegramMod)
-                val keyboard = botProvider.makeEnrollKeyboardMarkup(enroll.id)
-                SendMessage(chatId, msg).disableWebPagePreview(true).parseMode(ParseMode.HTML).replyMarkup(keyboard)
+                msgFactory.makeEnrollMsg(chatId, telegramMod, enroll.id)
             }
-            else -> SendMessage(chatId, reply.message["nothing"])
+            else -> msgFactory.makeReplyMsg(chatId, "nothing")
         }
         sendMessage.disableWebPagePreview(true)
         sendMessage.parseMode(ParseMode.HTML)
@@ -117,16 +117,13 @@ class Secretary(
         val cmd = update.message().text().replaceFirst("/", "")
         // 回执
         val sendMessage = when (cmd) {
-            "start", "enroll", "update", "help" -> SendMessage(chatId, reply.message[cmd])
-            "list" -> {
-                val keyboard = botProvider.makeReplyKeyboardMarkup()
-                SendMessage(chatId, reply.message[cmd]).replyMarkup(keyboard)
-            }
+            "start", "enroll", "update", "help" -> msgFactory.makeReplyMsg(chatId, cmd)
+            "list" -> msgFactory.makeListReplyMsg(chatId)
             "cancel" -> {
-                awaitStatus.remove(chatId)
-                SendMessage(chatId, reply.message["cancel"])
+                clearAwaitStatus(chatId)
+                msgFactory.makeReplyMsg(chatId, cmd)
             }
-            else -> SendMessage(chatId, reply.message["can-not-understand"])
+            else -> msgFactory.makeReplyMsg(chatId, "can-not-understand")
         }
         sendMessage.disableWebPagePreview(true)
         sendMessage.parseMode(ParseMode.HTML)
@@ -164,32 +161,23 @@ class Secretary(
                 val newEnroll = enroll.copy(classification = field)
                 elasticsearch.updateEnroll(newEnroll)
                 // 删除上一条消息
-                val deleteMessage = DeleteMessage(chatId, messageId)
-                botProvider.send(deleteMessage)
+                botProvider.sendDeleteMessage(chatId, messageId)
                 // 回执新消息
-                val detail = botProvider.makeRecordDetail(newEnroll)
-                val keyboard = botProvider.makeEnrollKeyboardMarkup(id)
-                val msg = SendMessage(chatId, detail).replyMarkup(keyboard)
-                msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+                val msg = msgFactory.makeEnrollMsg(chatId, id)
                 botProvider.send(msg)
             }
             // 通过文字修改收录申请信息
             arrayOf("title", "about", "tags").contains(field) -> {
-                this.awaitStatus[chatId] = Await(callbackData)
-                val msg = SendMessage(chatId, reply.message["enroll-update-$field"])
+                awaitStatus[chatId] = Await(messageId, callbackData)
+                val msg = msgFactory.makeReplyMsg(chatId, "enroll-update-$field")
                 botProvider.send(msg)
             }
             // 通过按钮修改收录申请信息
             field == "classification" -> {
                 // 删除上一条消息
-                val deleteMessage = DeleteMessage(chatId, messageId)
-                botProvider.send(deleteMessage)
+                botProvider.sendDeleteMessage(chatId, messageId)
                 // 回执新消息
-                val enroll = elasticsearch.getEnroll(id)!!
-                val detail = botProvider.makeRecordDetail(enroll)
-                val keyboard = botProvider.makeInlineKeyboardMarkup(id)
-                val msg = SendMessage(chatId, detail)
-                msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+                val msg = msgFactory.makeEnrollChangeClassificationMsg(chatId, id)
                 botProvider.send(msg)
             }
             // 提交
@@ -197,19 +185,83 @@ class Secretary(
                 val enroll = elasticsearch.getEnroll(id)!!
                 val newEnroll = enroll.copy(status = true)
                 elasticsearch.updateEnroll(newEnroll)
-                val deleteMessage = DeleteMessage(chatId, messageId)
-                botProvider.send(deleteMessage)
-                val msg = SendMessage(chatId, reply.message["enroll-submit"])
+                applyAwaitStatus(chatId)
+                val msg = msgFactory.makeReplyMsg(chatId, "enroll-submit")
                 botProvider.send(msg)
             }
             // 取消
             field == "cancel" -> {
                 elasticsearch.deleteEnroll(id)
-                val deleteMessage = DeleteMessage(chatId, messageId)
-                botProvider.send(deleteMessage)
-                val msg = SendMessage(chatId, reply.message["cancel"])
+                applyAwaitStatus(chatId)
+                val msg = msgFactory.makeReplyMsg(chatId, "cancel")
                 botProvider.send(msg)
             }
+        }
+    }
+
+    private fun executeByStatus(update: Update) {
+        val chatId = update.message().chat().id()
+        val statusCallbackData = awaitStatus[chatId]!!.callbackData
+        val callbackDataVal = statusCallbackData.replace("enroll:", "").split("&")
+        val field = callbackDataVal[0]
+        val id = callbackDataVal[1]
+        val msgContent = update.message().text()
+        try {
+            val enroll = elasticsearch.getEnroll(id)!!
+            when (field) {
+                "title" -> {
+                    if (msgContent.length > 26) throw MismatchException("标题太长，修改失败")
+                    val newEnroll = enroll.copy(title = msgContent)
+                    elasticsearch.updateEnroll(newEnroll)
+                }
+                "about" -> {
+                    val newEnroll = enroll.copy(about = msgContent)
+                    elasticsearch.updateEnroll(newEnroll)
+                }
+                "tags" -> {
+                    val tags = mutableListOf<String>()
+                    """(?<=#)[^\s#]+""".toRegex().findAll(msgContent).forEach {
+                        tags.add("#${it.value}")
+                    }
+                    if (tags.size < 1) throw MismatchException("格式有误，修改失败")
+                    val newEnroll = enroll.copy(tags = tags)
+                    elasticsearch.updateEnroll(newEnroll)
+                }
+            }
+            // 清除状态
+            applyAwaitStatus(chatId)
+            // 回执新消息
+            val msg = msgFactory.makeEnrollMsg(chatId, enroll.id)
+            botProvider.send(msg)
+        } catch (e: Throwable) {
+            when (e) {
+                is MismatchException -> {
+                    val msg = msgFactory.makeExceptionMsg(chatId, e)
+                    botProvider.send(msg)
+                }
+                else -> throw  e
+            }
+        }
+    }
+
+    /**
+     * 状态处理完毕
+     */
+    private fun applyAwaitStatus(chatId: Long) {
+        val chatAwaitStatus = awaitStatus[chatId]
+        if (chatAwaitStatus != null) {
+            botProvider.sendDeleteMessage(chatId, chatAwaitStatus.messageId)
+            awaitStatus.remove(chatId)
+        }
+    }
+
+    /**
+     * 取消状态
+     */
+    private fun clearAwaitStatus(chatId: Long) {
+        val chatAwaitStatus = awaitStatus[chatId]
+        if (chatAwaitStatus != null) {
+            awaitStatus.remove(chatId)
         }
     }
 }

@@ -9,6 +9,9 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.springframework.stereotype.Component
 
+/**
+ * 数据引擎
+ */
 @Component
 class Elasticsearch(
     private val elasticsearchProvider: ElasticsearchProvider
@@ -17,6 +20,10 @@ class Elasticsearch(
         val id: String,
         val title: String,
         val about: String,
+        /**
+         * 包含#
+         * 如：#apple #iphone
+         */
         val tags: Collection<String>?,
         val classification: String?,
         val code: String?,
@@ -40,7 +47,7 @@ class Elasticsearch(
 
     fun updateEnroll(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
-        val updateRequest = UpdateRequest(elasticsearchProvider.enrollIndexName,enroll.id).doc(builder)
+        val updateRequest = UpdateRequest(elasticsearchProvider.enrollIndexName, enroll.id).doc(builder)
         return elasticsearchProvider.updateDocument(updateRequest)
     }
 
@@ -65,7 +72,7 @@ class Elasticsearch(
             id,
             content["title"] as String,
             content["about"] as String,
-            tags ,
+            tags,
             content["classification"] as String?,
             content["code"] as String?,
             content["link"] as String?,
@@ -84,7 +91,7 @@ class Elasticsearch(
         builder.startObject()
         builder.field("title", enroll.title)
         builder.field("about", enroll.about)
-        builder.field("tag", tagsString)
+        builder.field("tags", tagsString)
         builder.field("classification", enroll.classification)
         builder.field("code", enroll.code)
         builder.field("link", enroll.link)
@@ -95,6 +102,5 @@ class Elasticsearch(
         builder.endObject()
         return builder
     }
-
 
 }

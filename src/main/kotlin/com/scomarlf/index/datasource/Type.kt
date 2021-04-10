@@ -7,6 +7,9 @@ import org.springframework.stereotype.Component
 import java.io.FileOutputStream
 import java.nio.file.Path
 
+/**
+ * 分类
+ */
 @Component
 class Type {
 

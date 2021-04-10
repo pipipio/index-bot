@@ -4,6 +4,9 @@ import com.scomarlf.index.provider.BotProvider
 import org.springframework.stereotype.Component
 import org.jsoup.Jsoup
 
+/**
+ * 获取群组、频道、bot信息
+ */
 @Component
 class Telegram(
     private val botProvider: BotProvider
@@ -42,7 +45,7 @@ class Telegram(
         return when (true) {
             isNotFound -> null
             members.contains("online") -> TelegramGroup(id,null, title, fixedAbout, fixedMembers)
-            members.contains("members") -> TelegramChannel(id, title, fixedAbout, fixedMembers)
+            members.contains("subscribers") -> TelegramChannel(id, title, fixedAbout, fixedMembers)
             members.endsWith("bot") -> TelegramBot(id, title, fixedAbout)
             else -> TelegramPerson(id, title, fixedAbout)
         }
