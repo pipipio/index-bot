@@ -31,7 +31,7 @@
             enroll-update-title
         </type>
         <content>
-            请告诉我新的标题，使用 /cancel 取消当前操作。
+            请告诉我新的标题。
         </content>
     </msg>
     <msg>
@@ -39,7 +39,7 @@
             enroll-update-about
         </type>
         <content>
-            请告诉我新的简介，使用 /cancel 取消当前操作。
+            请告诉我新的简介。
         </content>
     </msg>
     <msg>
@@ -47,7 +47,7 @@
             enroll-update-tags
         </type>
         <content>
-            请告诉我新的标签，不要恶意使用标签哦，使用 /cancel 取消当前操作。
+            请告诉我新的标签，不要恶意使用标签哦。
             标签以”#“开头，多个标签以空格隔开。
             如：#Telegram #新闻
         </content>

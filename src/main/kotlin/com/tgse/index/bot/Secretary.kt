@@ -46,8 +46,8 @@ class Secretary(
                     // 回执
                     when (true) {
                         update.callbackQuery() != null -> executeByButton(update)
-                        update.message().text().startsWith("/") -> executeByCommand(update)
                         awaitStatus[chatId] != null -> executeByStatus(update)
+                        update.message().text().startsWith("/") -> executeByCommand(update)
                         update.message().text().startsWith("@") -> executeByEnroll(update)
                         update.message().text().startsWith("https://t.me/") -> executeByEnroll(update)
                         else -> executeByText(update)
@@ -119,10 +119,6 @@ class Secretary(
         val sendMessage = when (cmd) {
             "start", "enroll", "update", "help" -> msgFactory.makeReplyMsg(chatId, cmd)
             "list" -> msgFactory.makeListReplyMsg(chatId)
-            "cancel" -> {
-                clearAwaitStatus(chatId)
-                msgFactory.makeReplyMsg(chatId, cmd)
-            }
             else -> msgFactory.makeReplyMsg(chatId, "can-not-understand")
         }
         sendMessage.disableWebPagePreview(true)
