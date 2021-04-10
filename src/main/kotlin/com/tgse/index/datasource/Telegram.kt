@@ -1,6 +1,6 @@
-package com.scomarlf.index.datasource
+package com.tgse.index.datasource
 
-import com.scomarlf.index.provider.BotProvider
+import com.tgse.index.provider.BotProvider
 import org.springframework.stereotype.Component
 import org.jsoup.Jsoup
 
@@ -18,10 +18,13 @@ class Telegram(
         val about: String
     }
 
-    data class TelegramChannel(override val id: String, override val title: String, override val about: String, val members: Long) : TelegramMod
-    data class TelegramGroup(override val id: String?, val link:String?, override val title: String, override val about: String, val members: Long) : TelegramMod
+    data class TelegramChannel(override val id: String, override val title: String, override val about: String, val members: Long) :
+        TelegramMod
+    data class TelegramGroup(override val id: String?, val link:String?, override val title: String, override val about: String, val members: Long) :
+        TelegramMod
     data class TelegramBot(override val id: String,override val title: String, override val about: String) : TelegramMod
-    data class TelegramPerson(override val id: String,override val title: String, override val about: String) : TelegramMod
+    data class TelegramPerson(override val id: String,override val title: String, override val about: String) :
+        TelegramMod
 
     /**
      * 公开群组、频道、机器人

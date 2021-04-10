@@ -1,6 +1,6 @@
-package com.scomarlf.index.datasource
+package com.tgse.index.datasource
 
-import com.scomarlf.index.provider.ElasticsearchProvider
+import com.tgse.index.provider.ElasticsearchProvider
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.index.IndexRequest

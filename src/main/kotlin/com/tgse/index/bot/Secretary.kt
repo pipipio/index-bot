@@ -1,15 +1,15 @@
-package com.scomarlf.index.bot
+package com.tgse.index.bot
 
 import com.pengrad.telegrambot.model.Chat
 import com.pengrad.telegrambot.model.Update
 import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.*
-import com.scomarlf.index.MismatchException
-import com.scomarlf.index.datasource.Elasticsearch
-import com.scomarlf.index.datasource.Telegram
-import com.scomarlf.index.factory.MsgFactory
-import com.scomarlf.index.provider.BotProvider
+import com.tgse.index.MismatchException
+import com.tgse.index.datasource.Elasticsearch
+import com.tgse.index.datasource.Telegram
+import com.tgse.index.factory.MsgFactory
+import com.tgse.index.provider.BotProvider
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.util.*

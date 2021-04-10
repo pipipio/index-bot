@@ -1,4 +1,4 @@
-package com.scomarlf.index.datasource
+package com.tgse.index.datasource
 
 import org.dom4j.Document
 import org.dom4j.Element

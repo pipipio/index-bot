@@ -1,4 +1,4 @@
-package com.scomarlf.index.provider
+package com.tgse.index.provider
 
 import org.apache.http.HttpHost
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest

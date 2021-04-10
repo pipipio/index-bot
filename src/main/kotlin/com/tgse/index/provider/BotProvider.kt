@@ -1,4 +1,4 @@
-package com.scomarlf.index.provider
+package com.tgse.index.provider
 
 import com.pengrad.telegrambot.TelegramBot
 import com.pengrad.telegrambot.UpdatesListener

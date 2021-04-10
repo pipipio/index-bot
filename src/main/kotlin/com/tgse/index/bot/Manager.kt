@@ -1,6 +1,6 @@
-package com.scomarlf.index.bot
+package com.tgse.index.bot
 
-import com.scomarlf.index.provider.BotProvider
+import com.tgse.index.provider.BotProvider
 import org.springframework.stereotype.Service
 
 @Service

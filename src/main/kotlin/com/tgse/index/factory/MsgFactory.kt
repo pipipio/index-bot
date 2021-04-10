@@ -1,15 +1,15 @@
-package com.scomarlf.index.factory
+package com.tgse.index.factory
 
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup
 import com.pengrad.telegrambot.request.SendMessage
-import com.scomarlf.index.MismatchException
-import com.scomarlf.index.datasource.Elasticsearch
-import com.scomarlf.index.datasource.Reply
-import com.scomarlf.index.datasource.Telegram
-import com.scomarlf.index.datasource.Type
+import com.tgse.index.MismatchException
+import com.tgse.index.datasource.Elasticsearch
+import com.tgse.index.datasource.Reply
+import com.tgse.index.datasource.Telegram
+import com.tgse.index.datasource.Type
 import org.springframework.stereotype.Component
 
 @Component

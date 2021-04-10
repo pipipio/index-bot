@@ -1,4 +1,4 @@
-package com.scomarlf.index
+package com.tgse.index
 
 import org.junit.jupiter.api.Test
 import org.springframework.boot.test.context.SpringBootTest
