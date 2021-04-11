@@ -10,13 +10,15 @@ import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.datasource.Reply
 import com.tgse.index.datasource.Telegram
 import com.tgse.index.datasource.Type
+import com.tgse.index.provider.BotProvider
 import org.springframework.stereotype.Component
 
 @Component
 class MsgFactory(
     private val reply: Reply,
     private val type: Type,
-    private val elasticsearch: Elasticsearch
+    private val elasticsearch: Elasticsearch,
+    private val botProvider: BotProvider
 ) {
 
     fun makeEnrollMsg(chatId: Long, telegramMod: Telegram.TelegramMod, enrollId: String): SendMessage {
@@ -45,7 +47,10 @@ class MsgFactory(
     }
 
     fun makeReplyMsg(chatId: Long, replyType: String): SendMessage {
-        return SendMessage(chatId, reply.message[replyType])
+        return SendMessage(
+            chatId,
+            reply.message[replyType]!!.replace("\\{bot.username\\}".toRegex(), botProvider.username)
+        )
     }
 
     fun makeListReplyMsg(chatId: Long): SendMessage {

@@ -2,10 +2,13 @@ package com.tgse.index.provider
 
 import com.pengrad.telegrambot.TelegramBot
 import com.pengrad.telegrambot.UpdatesListener
+import com.pengrad.telegrambot.model.BotCommand
 import com.pengrad.telegrambot.model.Update
+import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.request.*
 import com.pengrad.telegrambot.response.BaseResponse
 import com.pengrad.telegrambot.response.SendResponse
+import com.tgse.index.SetCommandException
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 import org.springframework.beans.factory.annotation.Value
@@ -21,10 +24,35 @@ class BotProvider(
     private val bot = TelegramBot(token)
     private val updateSubject = BehaviorSubject.create<Update>()
     val updateObservable: Observable<Update> = updateSubject.distinct()
+    val username: String by lazy {
+        val request = GetMe()
+        val response = bot.execute(request)
+        response.user().username()
+    }
 
     init {
+        setCommands()
         handleUpdate()
         println("Bot ready.")
+    }
+
+    private fun setCommands() {
+        try {
+            val setCommands = SetMyCommands(
+                BotCommand("start", "开 始"),
+                BotCommand("enroll", "申请收录"),
+                BotCommand("update", "修改收录信息"),
+                BotCommand("list", "收录列表"),
+                BotCommand("mine", "我提交的"),
+                BotCommand("setting", "设 置"),
+                BotCommand("help", "帮 助"),
+            )
+            val setResponse = bot.execute(setCommands)
+            if (!setResponse.isOk)
+                throw SetCommandException(setResponse.description())
+        } catch (e: Throwable) {
+            sendErrorMessage(e)
+        }
     }
 
     private fun handleUpdate() {
@@ -45,9 +73,6 @@ class BotProvider(
         return bot.execute(deleteMessage)
     }
 
-    fun send(action: SendChatAction): BaseResponse {
-        return bot.execute(action)
-    }
 
     fun send(answer: AnswerCallbackQuery): BaseResponse {
         return bot.execute(answer)
@@ -57,8 +82,18 @@ class BotProvider(
         return bot.execute(message)
     }
 
+    fun sendTyping(chatId: Long) {
+        val chatAction = SendChatAction(chatId, ChatAction.typing)
+        send(chatAction)
+    }
+
+    private fun send(action: SendChatAction): BaseResponse {
+        return bot.execute(action)
+    }
+
     fun sendErrorMessage(error: Throwable) {
-        val errorMessage = SendMessage(creator, error.stackTraceToString())
+        val msgContent = "Error:\n" + (error.message ?: error.stackTrace.copyOfRange(0, 4).joinToString("\n"))
+        val errorMessage = SendMessage(creator, msgContent)
         bot.execute(errorMessage)
     }
 }

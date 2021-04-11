@@ -20,10 +20,18 @@
         <content>
             提交收录申请前，请先看&lt;a href="https://t.me/zh_secretary/2"&gt;收录规则&lt;/a&gt;。
             &lt;b&gt;群组：&lt;/b&gt;请将机器人添加至群组中按照提示操作；
-            &lt;b&gt;频道：&lt;/b&gt;请直接回复频道ID，例：
+            &lt;b&gt;频道、bot：&lt;/b&gt;请直接发送用户名，例：
 
             @se_talk
             https://t.me/se_talk
+        </content>
+    </msg>
+    <msg>
+        <type>
+            enroll-need-join-group
+        </type>
+        <content>
+            需要将我添加至群组中。
         </content>
     </msg>
     <msg>
@@ -94,21 +102,28 @@
     </msg>
     <msg>
         <type>
-            update
+            setting
         </type>
         <content>
-            请以以下格式回复频道ID，索引秘书将会为您更新收录信息，例：
-
-            /update @se_talk
-            /update https://t.me/se_talk
+            敬请期待。
         </content>
     </msg>
     <msg>
         <type>
-            help
+            help-private
         </type>
         <content>
-            ES-索引秘书可以根据类型为您提供已收录的群组或频道，您也可以提交收录申请。
+            ES-索引秘书可以根据类型、关键字为您提供已收录的信息，您也可以使用 /enroll 查看如何提交收录申请。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            help-group
+        </type>
+        <content>
+            /enroll@{bot.username} 收录此群组
+            /update@{bot.username} 修改收录信息
+            /setting@{bot.username} 配置工作内容
         </content>
     </msg>
     <msg>
@@ -125,6 +140,30 @@
         </type>
         <content>
             当前操作已取消~
+        </content>
+    </msg>
+    <msg>
+        <type>
+            only-group
+        </type>
+        <content>
+            此命令仅限群组中可用。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            only-private
+        </type>
+        <content>
+            此命令仅限私聊时可用。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            await
+        </type>
+        <content>
+            敬请期待~
         </content>
     </msg>
 </message>

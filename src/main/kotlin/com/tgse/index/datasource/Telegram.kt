@@ -49,7 +49,7 @@ class Telegram(
             isNotFound -> null
             members.contains("online") -> TelegramGroup(id,null, title, fixedAbout, fixedMembers)
             members.contains("subscribers") -> TelegramChannel(id, title, fixedAbout, fixedMembers)
-            members.endsWith("bot") -> TelegramBot(id, title, fixedAbout)
+            members.toLowerCase().endsWith("bot") -> TelegramBot(id, title, fixedAbout)
             else -> TelegramPerson(id, title, fixedAbout)
         }
     }
