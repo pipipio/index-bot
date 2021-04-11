@@ -6,8 +6,7 @@ import com.pengrad.telegrambot.model.BotCommand
 import com.pengrad.telegrambot.model.Update
 import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.request.*
-import com.pengrad.telegrambot.response.BaseResponse
-import com.pengrad.telegrambot.response.SendResponse
+import com.pengrad.telegrambot.response.*
 import com.tgse.index.SetCommandException
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
@@ -80,6 +79,18 @@ class BotProvider(
 
     fun send(message: EditMessageReplyMarkup): BaseResponse {
         return bot.execute(message)
+    }
+
+    fun send(action: GetChat): GetChatResponse {
+        return bot.execute(action)
+    }
+
+    fun send(action: GetChatMembersCount): GetChatMembersCountResponse {
+        return bot.execute(action)
+    }
+
+    fun send(action: GetChatAdministrators): GetChatAdministratorsResponse {
+        return bot.execute(action)
     }
 
     fun sendTyping(chatId: Long) {

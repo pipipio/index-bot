@@ -66,24 +66,28 @@ class MsgFactory(
     }
 
     private fun makeRecordDetail(mod: Telegram.TelegramMod): String {
-        val link = "https://t.me/${mod.id}"
+        val link = if (mod.username != null) "https://t.me/${mod.username}" else (mod as Telegram.TelegramGroup).link
         val detailSB = StringBuffer()
         detailSB.append("<b>标题</b>： <a href=\"$link\">${mod.title}</a>\n")
         detailSB.append("<b>标签</b>： 暂无\n")
         detailSB.append("<b>分类</b>： 暂无\n")
         detailSB.append("<b>简介</b>：\n")
-        detailSB.append(mod.about.replace("<", "&lt;").replace(">", "&gt;"))
+        val description = if (mod.description == null) ""
+        else mod.description!!.replace("<", "&lt;").replace(">", "&gt;")
+        detailSB.append(description)
         return detailSB.toString()
     }
 
     private fun makeRecordDetail(enroll: Elasticsearch.Enroll): String {
-        val link = "https://t.me/${enroll.code}"
+        val link = if (enroll.username != null) "https://t.me/${enroll.username}" else enroll.link
         val detailSB = StringBuffer()
         detailSB.append("<b>标题</b>： <a href=\"$link\">${enroll.title}</a>\n")
         detailSB.append("<b>标签</b>： ${if (enroll.tags == null) "暂无" else enroll.tags.joinToString(" ")}\n")
         detailSB.append("<b>分类</b>： ${enroll.classification ?: "暂无"}\n")
         detailSB.append("<b>简介</b>：\n")
-        detailSB.append(enroll.about.replace("<", "&lt;").replace(">", "&gt;"))
+        val description = if (enroll.description == null) ""
+        else enroll.description.replace("<", "&lt;").replace(">", "&gt;")
+        detailSB.append(description)
         return detailSB.toString()
     }
 

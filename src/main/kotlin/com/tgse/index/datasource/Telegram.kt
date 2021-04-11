@@ -1,5 +1,7 @@
 package com.tgse.index.datasource
 
+import com.pengrad.telegrambot.request.GetChat
+import com.pengrad.telegrambot.request.GetChatMembersCount
 import com.tgse.index.provider.BotProvider
 import org.springframework.stereotype.Component
 import org.jsoup.Jsoup
@@ -12,33 +14,61 @@ class Telegram(
     private val botProvider: BotProvider
 ) {
 
-    interface TelegramMod {
-        val id:String?
-        val title: String
-        val about: String
+    enum class TelegramModType {
+        Channel,
+        Group,
+        Bot,
+        Person
     }
 
-    data class TelegramChannel(override val id: String, override val title: String, override val about: String, val members: Long) :
-        TelegramMod
-    data class TelegramGroup(override val id: String?, val link:String?, override val title: String, override val about: String, val members: Long) :
-        TelegramMod
-    data class TelegramBot(override val id: String,override val title: String, override val about: String) : TelegramMod
-    data class TelegramPerson(override val id: String,override val title: String, override val about: String) :
-        TelegramMod
+    interface TelegramMod {
+        val username: String?
+        val title: String
+        val description: String?
+    }
+
+    class TelegramChannel(
+        override val username: String,
+        override val title: String,
+        override val description: String?,
+        val members: Long
+    ) : TelegramMod
+
+    data class TelegramGroup(
+        val chatId: Long?,
+        override val username: String?,
+        val link: String?,
+        override val title: String,
+        override val description: String?,
+        val members: Long
+    ) : TelegramMod
+
+    data class TelegramBot(
+        override val username: String,
+        override val title: String,
+        override val description: String?
+    ) : TelegramMod
+
+    data class TelegramPerson(
+        override val username: String,
+        override val title: String,
+        override val description: String?
+    ) : TelegramMod
 
     /**
      * 公开群组、频道、机器人
      */
-    fun getModFromWeb(id: String): TelegramMod? {
-        if (id.isEmpty()) return null
-        val doc = Jsoup.connect("https://t.me/$id").get()
+    fun getTelegramModFromWeb(username: String): TelegramMod? {
+        if (username.isEmpty()) return null
+        val doc = Jsoup.connect("https://t.me/$username").get()
 
         val isNotFound = doc.select(".tgme_page_wrap .tgme_page .tgme_page_icon").html().contains("tgme_icon_user")
         val title = doc.select(".tgme_page_wrap .tgme_page .tgme_page_title span").text()
         val about = doc.select(".tgme_page_wrap .tgme_page .tgme_page_description").html()
         val members = doc.select(".tgme_page_wrap .tgme_page .tgme_page_extra").text()
 
-        val fixedAbout = about.replace("<[^>]+>".toRegex(), "")
+        var fixedDescription: String? = about.replace("<[^>]+>".toRegex(), "")
+        fixedDescription = if (fixedDescription!!.isEmpty() || fixedDescription.isBlank()) null else fixedDescription
         val fixedMembers = when (true) {
             members.contains(",") -> members.split(',')[0].replace("members", "").replace(" ".toRegex(), "").toLong()
             members.contains("members") -> members.replace("members", "").replace(" ".toRegex(), "").toLong()
@@ -47,18 +77,30 @@ class Telegram(
 
         return when (true) {
             isNotFound -> null
-            members.contains("online") -> TelegramGroup(id,null, title, fixedAbout, fixedMembers)
-            members.contains("subscribers") -> TelegramChannel(id, title, fixedAbout, fixedMembers)
-            members.toLowerCase().endsWith("bot") -> TelegramBot(id, title, fixedAbout)
-            else -> TelegramPerson(id, title, fixedAbout)
+            members.contains("online") -> TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
+            members.contains("subscribers") -> TelegramChannel(username, title, fixedDescription, fixedMembers)
+            members.toLowerCase().endsWith("bot") -> TelegramBot(username, title, fixedDescription)
+            else -> TelegramPerson(username, title, fixedDescription)
         }
     }
 
     /**
-     * 仅支持私有群组
+     * 群组
      */
-    fun getModFromChat(id:String){
+    fun getTelegramGroupFromChat(id: Long): TelegramGroup? {
+        return try {
+            val getChat = GetChat(id)
+            val chat = botProvider.send(getChat).chat()
 
+            val getChatMembersCount = GetChatMembersCount(id)
+            val count = botProvider.send(getChatMembersCount).count()
+
+            val link = if (chat.username() != null) null else chat.inviteLink()
+            TelegramGroup(id, chat.username(), link, chat.title(), chat.description(), count.toLong())
+        } catch (e: Throwable) {
+            botProvider.sendErrorMessage(e)
+            null
+        }
     }
 
 }

@@ -77,19 +77,43 @@ class Private(
         // 获取收录内容
         val id = request.update.message().text().replaceFirst("@", "").replaceFirst("https://t.me/", "")
         // 回执
-        val telegramMod = telegram.getModFromWeb(id)
+        val telegramMod = telegram.getTelegramModFromWeb(id)
         val sendMessage = when (telegramMod) {
             is Telegram.TelegramGroup -> {
                 msgFactory.makeReplyMsg(request.chatId, "enroll-need-join-group")
             }
-            is Telegram.TelegramChannel, is Telegram.TelegramBot -> {
+            is Telegram.TelegramChannel -> {
                 val enroll = Elasticsearch.Enroll(
                     UUID.randomUUID().toString(),
+                    Telegram.TelegramModType.Channel,
+                    null,
                     telegramMod.title,
-                    telegramMod.about,
+                    telegramMod.description,
                     null,
                     null,
-                    telegramMod.id,
+                    telegramMod.username,
+                    null,
+                    telegramMod.members,
+                    Date().time,
+                    request.chatId,
+                    request.update.message().chat().username(),
+                    false
+                )
+                val createEnroll = elasticsearch.addEnroll(enroll)
+                if (!createEnroll) return
+                msgFactory.makeEnrollMsg(request.chatId, telegramMod, enroll.uuid)
+            }
+            is Telegram.TelegramBot -> {
+                val enroll = Elasticsearch.Enroll(
+                    UUID.randomUUID().toString(),
+                    Telegram.TelegramModType.Bot,
+                    null,
+                    telegramMod.title,
+                    telegramMod.description,
+                    null,
+                    null,
+                    telegramMod.username,
+                    null,
                     null,
                     Date().time,
                     request.chatId,
@@ -98,7 +122,7 @@ class Private(
                 )
                 val createEnroll = elasticsearch.addEnroll(enroll)
                 if (!createEnroll) return
-                msgFactory.makeEnrollMsg(request.chatId, telegramMod, enroll.id)
+                msgFactory.makeEnrollMsg(request.chatId, telegramMod, enroll.uuid)
             }
             else -> msgFactory.makeReplyMsg(request.chatId, "nothing")
         }
@@ -144,18 +168,18 @@ class Private(
         val callbackData = request.update.callbackQuery().data()
         val callbackDataVal = callbackData.replace("enroll:", "").replace("classification:", "").split("&")
         val field = callbackDataVal[0]
-        val id = callbackDataVal[1]
+        val uuid = callbackDataVal[1]
         when (true) {
             // 通过按钮修改收录申请信息
             callbackData.startsWith("classification") -> {
                 // 修改数据
-                val enroll = elasticsearch.getEnroll(id)!!
+                val enroll = elasticsearch.getEnroll(uuid)!!
                 val newEnroll = enroll.copy(classification = field)
                 elasticsearch.updateEnroll(newEnroll)
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId, request.messageId!!)
                 // 回执新消息
-                val msg = msgFactory.makeEnrollMsg(request.chatId, id)
+                val msg = msgFactory.makeEnrollMsg(request.chatId, uuid)
                 botProvider.send(msg)
             }
             // 通过文字修改收录申请信息
@@ -169,12 +193,12 @@ class Private(
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId, request.messageId!!)
                 // 回执新消息
-                val msg = msgFactory.makeEnrollChangeClassificationMsg(request.chatId, id)
+                val msg = msgFactory.makeEnrollChangeClassificationMsg(request.chatId, uuid)
                 botProvider.send(msg)
             }
             // 提交
             field == "submit" -> {
-                val enroll = elasticsearch.getEnroll(id)!!
+                val enroll = elasticsearch.getEnroll(uuid)!!
                 val newEnroll = enroll.copy(status = true)
                 elasticsearch.updateEnroll(newEnroll)
                 botProvider.sendDeleteMessage(request.chatId, request.messageId!!)
@@ -184,7 +208,7 @@ class Private(
             }
             // 取消
             field == "cancel" -> {
-                elasticsearch.deleteEnroll(id)
+                elasticsearch.deleteEnroll(uuid)
                 botProvider.sendDeleteMessage(request.chatId, request.messageId!!)
                 clearAwaitStatus(request.chatId)
                 val msg = msgFactory.makeReplyMsg(request.chatId, "cancel")
@@ -197,10 +221,10 @@ class Private(
         val statusCallbackData = awaitStatus[request.chatId]!!.callbackData
         val callbackDataVal = statusCallbackData.replace("enroll:", "").split("&")
         val field = callbackDataVal[0]
-        val id = callbackDataVal[1]
+        val uuid = callbackDataVal[1]
         val msgContent = request.update.message().text()
         try {
-            val enroll = elasticsearch.getEnroll(id)!!
+            val enroll = elasticsearch.getEnroll(uuid)!!
             when (field) {
                 "title" -> {
                     if (msgContent.length > 26) throw MismatchException("标题太长，修改失败")
@@ -208,13 +232,15 @@ class Private(
                     elasticsearch.updateEnroll(newEnroll)
                 }
                 "about" -> {
-                    val newEnroll = enroll.copy(about = msgContent)
+                    val newEnroll = enroll.copy(description = msgContent)
                     elasticsearch.updateEnroll(newEnroll)
                 }
                 "tags" -> {
                     val tags = mutableListOf<String>()
                     """(?<=#)[^\s#]+""".toRegex().findAll(msgContent).forEach {
-                        tags.add("#${it.value}")
+                        val tag = "#${it.value}"
+                        if (!tags.contains(tag))
+                            tags.add(tag)
                     }
                     if (tags.size < 1) throw MismatchException("格式有误，修改失败")
                     val newEnroll = enroll.copy(tags = tags)
@@ -224,7 +250,7 @@ class Private(
             // 清除状态
             applyAwaitStatus(request.chatId)
             // 回执新消息
-            val msg = msgFactory.makeEnrollMsg(request.chatId, enroll.id)
+            val msg = msgFactory.makeEnrollMsg(request.chatId, enroll.uuid)
             botProvider.send(msg)
         } catch (e: Throwable) {
             when (e) {
