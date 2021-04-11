@@ -1,6 +1,9 @@
 package com.tgse.index.datasource
 
 import com.tgse.index.provider.ElasticsearchProvider
+import com.tgse.index.provider.WatershedProvider
+import io.reactivex.Observable
+import io.reactivex.subjects.BehaviorSubject
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -8,6 +11,7 @@ import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.springframework.stereotype.Component
+import java.lang.RuntimeException
 
 /**
  * 数据引擎
@@ -38,6 +42,12 @@ class Elasticsearch(
         val status: Boolean
     )
 
+    private val submitEnrollSubject = BehaviorSubject.create<String>()
+    val submitEnrollObservable: Observable<String> = submitEnrollSubject.distinct()
+
+    private val submitApproveSubject = BehaviorSubject.create<WatershedProvider.BotRequest>()
+    val submitApproveObservable: Observable<WatershedProvider.BotRequest> = submitApproveSubject.distinct()
+
     fun addEnroll(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
         val indexRequest = IndexRequest(elasticsearchProvider.enrollIndexName)
@@ -46,6 +56,22 @@ class Elasticsearch(
     }
 
     fun updateEnroll(enroll: Enroll): Boolean {
+        val sourceEnroll = getEnroll(enroll.uuid)!!
+        if (sourceEnroll.status != enroll.status) throw RuntimeException("此函数不允许修改状态")
+        return updateEnrollDetail(enroll)
+    }
+
+    fun submitEnroll(uuid: String): Boolean {
+        val enroll = getEnroll(uuid)
+        if (enroll!!.status) return true
+        val newEnroll = enroll.copy(status = true)
+        val updateStatus = updateEnrollDetail(newEnroll)
+        if (updateStatus)
+            submitEnrollSubject.onNext(newEnroll.uuid)
+        return updateStatus
+    }
+
+    private fun updateEnrollDetail(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
         val updateRequest = UpdateRequest(elasticsearchProvider.enrollIndexName, enroll.uuid).doc(builder)
         return elasticsearchProvider.updateDocument(updateRequest)
@@ -78,7 +104,7 @@ class Elasticsearch(
             content["classification"] as String?,
             content["code"] as String?,
             content["link"] as String?,
-            content["members"] as Long?,
+           ( content["members"] as Int?)!!.toLong(),
             content["createTime"] as Long,
             content["createUser"].toString().toLong(),
             content["createUserName"] as String,

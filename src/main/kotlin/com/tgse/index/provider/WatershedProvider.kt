@@ -6,6 +6,7 @@ import com.tgse.index.bot.Group
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 import org.slf4j.LoggerFactory
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 
 /**
@@ -14,7 +15,9 @@ import org.springframework.stereotype.Service
  */
 @Service
 class WatershedProvider(
-    private val botProvider: BotProvider
+    private val botProvider: BotProvider,
+    @Value("\${group.approve.id}")
+    private val approveGroupChatId: Long
 ) {
 
     open class BotRequest(
@@ -46,6 +49,17 @@ class WatershedProvider(
         update
     )
 
+    class BotApproveRequest(
+        override val chatId: Long,
+        override val messageId: Int?,
+        override val update: Update
+    ) : BotRequest(
+        chatId,
+        Chat.Type.group,
+        messageId,
+        update
+    )
+
     private val logger = LoggerFactory.getLogger(Group::class.java)
     private val requestSubject = BehaviorSubject.create<BotRequest>()
     val requestObservable: Observable<BotRequest> = requestSubject.distinct()
@@ -62,23 +76,24 @@ class WatershedProvider(
                 if (messageContentIsNull && update.callbackQuery() == null) return@subscribe
 
                 // 获取概要内容
+                val callbackQuery = update.callbackQuery()
+
                 val chatType = when (true) {
-                    update.message() == null && update.callbackQuery() == null -> null
+                    update.message() == null && callbackQuery == null -> null
                     update.message() != null -> update.message().chat().type()
-                    update.callbackQuery() != null -> update.callbackQuery().message().chat().type()
+                    callbackQuery != null -> callbackQuery.message().chat().type()
                     else -> null
                 }
 
                 val chatId = when (true) {
-                    update.message() == null && update.callbackQuery() == null -> null
+                    update.message() == null && callbackQuery == null -> null
+                    callbackQuery?.message() != null -> callbackQuery.message().chat().id()
+                    callbackQuery != null -> callbackQuery.from().id().toLong()
                     update.message() != null -> update.message().chat().id()
-                    update.callbackQuery() != null -> update.callbackQuery().from().id().toLong()
                     else -> null
                 }
 
-                val messageId =
-                    if (update.callbackQuery() != null) update.callbackQuery().message().messageId()
-                    else null
+                val messageId = callbackQuery?.message()?.messageId()
 
                 // send next
                 when (chatType) {
@@ -87,7 +102,9 @@ class WatershedProvider(
                         requestSubject.onNext(request)
                     }
                     Chat.Type.supergroup, Chat.Type.group -> {
-                        val request = BotGroupRequest(chatId!!, messageId, update)
+                        val request =
+                            if (chatId == approveGroupChatId) BotApproveRequest(chatId, messageId, update)
+                            else BotGroupRequest(chatId!!, messageId, update)
                         requestSubject.onNext(request)
                     }
                     else -> {

@@ -178,6 +178,14 @@
     </msg>
     <msg>
         <type>
+            disable
+        </type>
+        <content>
+            当前区域已禁用此功能。
+        </content>
+    </msg>
+    <msg>
+        <type>
             pls-check-private
         </type>
         <content>

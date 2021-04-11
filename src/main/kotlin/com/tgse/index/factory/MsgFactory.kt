@@ -46,6 +46,17 @@ class MsgFactory(
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
+    fun makeApproveMsg(chatId: Long, enrollId: String): SendMessage {
+        val enroll = elasticsearch.getEnroll(enrollId)!!
+        val detail = makeApproveRecordDetail(enroll)
+        val keyboard = makeApproveKeyboardMarkup(enrollId)
+        return SendMessage(chatId, detail)
+            .replyMarkup(keyboard)
+            .parseMode(ParseMode.HTML)
+            .disableWebPagePreview(true)
+            .replyMarkup(keyboard)
+    }
+
     fun makeReplyMsg(chatId: Long, replyType: String): SendMessage {
         return SendMessage(
             chatId,
@@ -86,9 +97,13 @@ class MsgFactory(
         detailSB.append("<b>分类</b>： ${enroll.classification ?: "暂无"}\n")
         detailSB.append("<b>简介</b>：\n")
         val description = if (enroll.description == null) ""
-        else enroll.description.replace("<", "&lt;").replace(">", "&gt;")
+        else enroll.description.replace("<", "&lt;").replace(">", "&gt;") + "\n"
         detailSB.append(description)
         return detailSB.toString()
+    }
+
+    private fun makeApproveRecordDetail(enroll: Elasticsearch.Enroll): String {
+        return makeRecordDetail(enroll) + "\n<b>提交者</b>： ${enroll.createUserName}\n"
     }
 
     private fun makeReplyKeyboardMarkup(): ReplyKeyboardMarkup {
@@ -150,6 +165,14 @@ class MsgFactory(
 
     private fun makeApproveKeyboardMarkup(id: String): InlineKeyboardMarkup {
         return InlineKeyboardMarkup(
+            arrayOf(
+                InlineKeyboardButton("✍编辑标题").callbackData("approve:title&$id"),
+                InlineKeyboardButton("✍编辑简介").callbackData("approve:about&$id"),
+            ),
+            arrayOf(
+                InlineKeyboardButton("✍编辑标签").callbackData("approve:tags&$id"),
+                InlineKeyboardButton("✍编辑分类").callbackData("approve:classification&$id"),
+            ),
             arrayOf(
                 InlineKeyboardButton("✅通过").callbackData("approve:pass&$id"),
                 InlineKeyboardButton("❎不通过").callbackData("approve:fail&$id"),
