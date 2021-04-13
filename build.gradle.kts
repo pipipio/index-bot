@@ -20,8 +20,8 @@ repositories {
         url = uri("https://snapshots.elastic.co/maven/")
     }
     maven {
-        url = uri("https://s3.amazonaws.com/download.elasticsearch.org/lucenesnapshots/83f9835")
         name = "lucene-snapshots"
+        url = uri("https://s3.amazonaws.com/download.elasticsearch.org/lucenesnapshots/83f9835")
     }
 }
 
@@ -41,7 +41,7 @@ dependencies {
     // telegram
     api("com.github.pengrad:java-telegram-bot-api:5.0.1")
     // elasticsearch
-    implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.11.2")
+    implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.12.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

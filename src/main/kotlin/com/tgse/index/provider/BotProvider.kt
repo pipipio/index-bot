@@ -10,17 +10,37 @@ import com.pengrad.telegrambot.response.*
 import com.tgse.index.SetCommandException
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
+import okhttp3.OkHttpClient
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.net.InetSocketAddress
 
 @Component
 class BotProvider(
     @Value("\${bot.token}")
     private val token: String,
     @Value("\${bot.creator}")
-    private val creator: Long
+    private val creator: Long,
+    @Value("\${proxy.use}")
+    private val isUseProxy: Boolean,
+    @Value("\${proxy.type}")
+    private val proxyType: String,
+    @Value("\${proxy.ip}")
+    private val proxyIp: String,
+    @Value("\${proxy.port}")
+    private val proxyPort: Int
 ) {
-    private val bot = TelegramBot(token)
+    private val bot: TelegramBot by lazy {
+        if (isUseProxy) {
+            val socketAddress = InetSocketAddress(proxyIp, proxyPort)
+            val proxy = java.net.Proxy(java.net.Proxy.Type.valueOf(proxyType), socketAddress)
+            val okHttpClient = OkHttpClient().newBuilder().proxy(proxy).build()
+            TelegramBot.Builder(token).okHttpClient(okHttpClient).build()
+        } else {
+            TelegramBot(token)
+        }
+    }
+
     private val updateSubject = BehaviorSubject.create<Update>()
     val updateObservable: Observable<Update> = updateSubject.distinct()
     val username: String by lazy {
