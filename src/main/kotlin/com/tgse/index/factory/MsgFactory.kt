@@ -21,12 +21,6 @@ class MsgFactory(
     private val botProvider: BotProvider
 ) {
 
-    fun makeEnrollMsg(chatId: Long, telegramMod: Telegram.TelegramMod, enrollId: String): SendMessage {
-        val content = makeRecordDetail(telegramMod)
-        val keyboard = makeEnrollKeyboardMarkup(enrollId)
-        return SendMessage(chatId, content).disableWebPagePreview(true).parseMode(ParseMode.HTML).replyMarkup(keyboard)
-    }
-
     fun makeEnrollMsg(chatId: Long, enrollId: String): SendMessage {
         val enroll = elasticsearch.getEnroll(enrollId)!!
         val detail = makeRecordDetail(enroll)
@@ -57,6 +51,14 @@ class MsgFactory(
             .replyMarkup(keyboard)
     }
 
+    fun makeApproveChangeClassificationMsg(chatId: Long, enrollId: String): SendMessage {
+        val enroll = elasticsearch.getEnroll(enrollId)!!
+        val detail = makeApproveRecordDetail(enroll)
+        val keyboard = makeInlineKeyboardMarkup(enrollId)
+        val msg = SendMessage(chatId, detail)
+        return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+    }
+
     fun makeReplyMsg(chatId: Long, replyType: String): SendMessage {
         return SendMessage(
             chatId,
@@ -74,19 +76,6 @@ class MsgFactory(
             is MismatchException -> SendMessage(chatId, e.message)
             else -> SendMessage(chatId, "未知错误")
         }
-    }
-
-    private fun makeRecordDetail(mod: Telegram.TelegramMod): String {
-        val link = if (mod.username != null) "https://t.me/${mod.username}" else (mod as Telegram.TelegramGroup).link
-        val detailSB = StringBuffer()
-        detailSB.append("<b>标题</b>： <a href=\"$link\">${mod.title}</a>\n")
-        detailSB.append("<b>标签</b>： 暂无\n")
-        detailSB.append("<b>分类</b>： 暂无\n")
-        detailSB.append("<b>简介</b>：\n")
-        val description = if (mod.description == null) ""
-        else mod.description!!.replace("<", "&lt;").replace(">", "&gt;")
-        detailSB.append(description)
-        return detailSB.toString()
     }
 
     private fun makeRecordDetail(enroll: Elasticsearch.Enroll): String {

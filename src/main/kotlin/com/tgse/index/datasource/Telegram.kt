@@ -71,7 +71,7 @@ class Telegram(
         fixedDescription = if (fixedDescription!!.isEmpty() || fixedDescription.isBlank()) null else fixedDescription
         val fixedMembers = when (true) {
             members.contains(",") -> members.split(',')[0].replace("members", "").replace(" ".toRegex(), "").toLong()
-            members.contains("members") -> members.replace("members", "").replace(" ".toRegex(), "").toLong()
+            members.contains("subscribers") -> members.replace("subscribers", "").replace(" ".toRegex(), "").toLong()
             else -> 0L
         }
 

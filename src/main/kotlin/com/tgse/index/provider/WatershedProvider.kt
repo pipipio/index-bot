@@ -71,45 +71,8 @@ class WatershedProvider(
     private fun subscribeUpdate() {
         botProvider.updateObservable.subscribe(
             { update ->
-                // 仅处理文字信息或按钮回执
-                val messageContentIsNull = update.message() == null || update.message().text() == null
-                if (messageContentIsNull && update.callbackQuery() == null) return@subscribe
-
-                // 获取概要内容
-                val callbackQuery = update.callbackQuery()
-
-                val chatType = when (true) {
-                    update.message() == null && callbackQuery == null -> null
-                    update.message() != null -> update.message().chat().type()
-                    callbackQuery != null -> callbackQuery.message().chat().type()
-                    else -> null
-                }
-
-                val chatId = when (true) {
-                    update.message() == null && callbackQuery == null -> null
-                    callbackQuery?.message() != null -> callbackQuery.message().chat().id()
-                    callbackQuery != null -> callbackQuery.from().id().toLong()
-                    update.message() != null -> update.message().chat().id()
-                    else -> null
-                }
-
-                val messageId = callbackQuery?.message()?.messageId()
-
-                // send next
-                when (chatType) {
-                    Chat.Type.Private -> {
-                        val request = BotPrivateRequest(chatId!!, messageId, update)
-                        requestSubject.onNext(request)
-                    }
-                    Chat.Type.supergroup, Chat.Type.group -> {
-                        val request =
-                            if (chatId == approveGroupChatId) BotApproveRequest(chatId, messageId, update)
-                            else BotGroupRequest(chatId!!, messageId, update)
-                        requestSubject.onNext(request)
-                    }
-                    else -> {
-                    }
-                }
+                val request = makeBotRequest(update) ?: return@subscribe
+                requestSubject.onNext(request)
             },
             { throwable ->
                 throwable.printStackTrace()
@@ -120,6 +83,41 @@ class WatershedProvider(
                 logger.error("Group.complete")
             }
         )
+    }
+
+    private fun makeBotRequest(update: Update): BotRequest? {
+        // 仅处理文字信息或按钮回执
+        val messageContentIsNull = update.message() == null || update.message().text() == null
+        if (messageContentIsNull && update.callbackQuery() == null) return null
+
+        // 获取概要内容
+        val callbackQuery = update.callbackQuery()
+
+        val chatType = when (true) {
+            update.message() == null && callbackQuery == null -> null
+            update.message() != null -> update.message().chat().type()
+            callbackQuery != null -> callbackQuery.message().chat().type()
+            else -> null
+        }
+
+        val chatId = when (true) {
+            update.message() == null && callbackQuery == null -> null
+            callbackQuery?.message() != null -> callbackQuery.message().chat().id()
+            callbackQuery != null -> callbackQuery.from().id().toLong()
+            update.message() != null -> update.message().chat().id()
+            else -> null
+        }
+
+        val messageId = callbackQuery?.message()?.messageId()
+
+        return when (chatType) {
+            Chat.Type.Private -> BotPrivateRequest(chatId!!, messageId, update)
+            Chat.Type.supergroup, Chat.Type.group -> {
+                if (chatId == approveGroupChatId) BotApproveRequest(chatId, messageId, update)
+                else BotGroupRequest(chatId!!, messageId, update)
+            }
+            else -> null
+        }
     }
 
 }

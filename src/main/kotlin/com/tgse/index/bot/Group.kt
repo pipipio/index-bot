@@ -140,7 +140,7 @@ class Group(
         val createEnroll = elasticsearch.addEnroll(enroll)
         if (!createEnroll) throw RuntimeException("群组信息存储失败")
         // 回执
-        val sendMessage = msgFactory.makeEnrollMsg(userId, telegramGroup, enroll.uuid)
+        val sendMessage = msgFactory.makeEnrollMsg(userId, enroll.uuid)
         botProvider.send(sendMessage)
         return msgFactory.makeReplyMsg(request.chatId, "pls-check-private")
     }
@@ -176,11 +176,11 @@ class Group(
 
     private fun autoDeleteMessageSent() {
         while (true) {
-            Thread.sleep(2000)
+            Thread.sleep(1000)
             val now = Date().time
             messageSents.removeIf { messageSent ->
                 try {
-                    if (messageSent.time + autoDeleteMsgCycle < now) {
+                    if (messageSent.time + autoDeleteMsgCycle * 1000 < now) {
                         botProvider.sendDeleteMessage(messageSent.chatId, messageSent.messageId)
                         true
                     } else {

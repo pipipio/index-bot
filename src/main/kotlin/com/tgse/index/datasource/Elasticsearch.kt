@@ -104,7 +104,11 @@ class Elasticsearch(
             content["classification"] as String?,
             content["code"] as String?,
             content["link"] as String?,
-           ( content["members"] as Int?)!!.toLong(),
+            when (content["members"]) {
+                is Int -> (content["members"] as Int).toLong()
+                is Long -> content["members"] as Long
+                else -> null
+            },
             content["createTime"] as Long,
             content["createUser"].toString().toLong(),
             content["createUserName"] as String,

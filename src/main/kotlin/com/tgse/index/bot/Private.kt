@@ -102,7 +102,7 @@ class Private(
                 )
                 val createEnroll = elasticsearch.addEnroll(enroll)
                 if (!createEnroll) return
-                msgFactory.makeEnrollMsg(request.chatId, telegramMod, enroll.uuid)
+                msgFactory.makeEnrollMsg(request.chatId, enroll.uuid)
             }
             is Telegram.TelegramBot -> {
                 val enroll = Elasticsearch.Enroll(
@@ -123,7 +123,7 @@ class Private(
                 )
                 val createEnroll = elasticsearch.addEnroll(enroll)
                 if (!createEnroll) return
-                msgFactory.makeEnrollMsg(request.chatId, telegramMod, enroll.uuid)
+                msgFactory.makeEnrollMsg(request.chatId, enroll.uuid)
             }
             else -> msgFactory.makeReplyMsg(request.chatId, "nothing")
         }

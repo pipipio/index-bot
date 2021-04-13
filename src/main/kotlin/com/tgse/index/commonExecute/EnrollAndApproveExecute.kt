@@ -53,7 +53,11 @@ class EnrollAndApproveExecute(
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 // 回执新消息
-                val msg = msgFactory.makeEnrollChangeClassificationMsg(request.chatId!!, uuid)
+
+                val msg = when (type) {
+                    Type.Enroll -> msgFactory.makeEnrollChangeClassificationMsg(request.chatId!!, uuid)
+                    Type.Approve -> msgFactory.makeApproveChangeClassificationMsg(request.chatId!!, uuid)
+                }
                 botProvider.send(msg)
             }
             // 提交
