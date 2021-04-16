@@ -8,36 +8,27 @@ import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.request.*
 import com.pengrad.telegrambot.response.*
 import com.tgse.index.SetCommandException
+import com.tgse.index.setting.BotProperties
+import com.tgse.index.setting.ProxyProperties
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 import okhttp3.OkHttpClient
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 
 @Component
 class BotProvider(
-    @Value("\${bot.token}")
-    private val token: String,
-    @Value("\${bot.creator}")
-    private val creator: Long,
-    @Value("\${proxy.use}")
-    private val isUseProxy: Boolean,
-    @Value("\${proxy.type}")
-    private val proxyType: String,
-    @Value("\${proxy.ip}")
-    private val proxyIp: String,
-    @Value("\${proxy.port}")
-    private val proxyPort: Int
+    private val botProperties: BotProperties,
+    private val proxyProperties: ProxyProperties
 ) {
     private val bot: TelegramBot by lazy {
-        if (isUseProxy) {
-            val socketAddress = InetSocketAddress(proxyIp, proxyPort)
-            val proxy = java.net.Proxy(java.net.Proxy.Type.valueOf(proxyType), socketAddress)
+        if (proxyProperties.enabled) {
+            val socketAddress = InetSocketAddress(proxyProperties.ip, proxyProperties.port)
+            val proxy = java.net.Proxy(proxyProperties.type, socketAddress)
             val okHttpClient = OkHttpClient().newBuilder().proxy(proxy).build()
-            TelegramBot.Builder(token).okHttpClient(okHttpClient).build()
+            TelegramBot.Builder(botProperties.token).okHttpClient(okHttpClient).build()
         } else {
-            TelegramBot(token)
+            TelegramBot(botProperties.token)
         }
     }
 
@@ -124,7 +115,7 @@ class BotProvider(
 
     fun sendErrorMessage(error: Throwable) {
         val msgContent = "Error:\n" + (error.message ?: error.stackTrace.copyOfRange(0, 4).joinToString("\n"))
-        val errorMessage = SendMessage(creator, msgContent)
+        val errorMessage = SendMessage(botProperties.creator, msgContent)
         bot.execute(errorMessage)
     }
 }

@@ -1,0 +1,46 @@
+{
+  "properties": [
+    {
+      "name": "bot.creator",
+      "type": "java.lang.String",
+      "defaultValue": "123456789",
+      "description": "your telegram user id"
+    },
+    {
+      "name": "bot.token",
+      "type": "java.lang.String",
+      "defaultValue": "bot123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11",
+      "description": "bot token from bot father"
+    },
+    {
+      "name": "group.general.autoDeleteMsgCycle",
+      "type": "java.lang.Integer",
+      "defaultValue": 30,
+      "description": "auto delete group message cycle"
+    },
+    {
+      "name": "proxy.enabled",
+      "type": "java.lang.Boolean",
+      "defaultValue": false,
+      "description": "is use proxy"
+    },
+    {
+      "name": "proxy.type",
+      "type": "java.lang.String",
+      "defaultValue": "SOCKS",
+      "description": "proxy type: DIRECT HTTP SOCKS"
+    },
+    {
+      "name": "proxy.ip",
+      "type": "java.lang.String",
+      "defaultValue": "127.0.0.1",
+      "description": "proxy ip address"
+    },
+    {
+      "name": "proxy.port",
+      "type": "java.lang.String",
+      "defaultValue": "7890",
+      "description": "proxy port"
+    }
+  ]
+}

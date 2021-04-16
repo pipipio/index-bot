@@ -2,7 +2,7 @@ package com.tgse.index.bot
 
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.*
-import com.tgse.index.commonExecute.EnrollAndApproveExecute
+import com.tgse.index.bot.execute.EnrollAndApproveExecute
 import com.tgse.index.datasource.AwaitStatus
 import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.datasource.Telegram
