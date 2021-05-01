@@ -25,21 +25,12 @@ class Group(
     private val telegram: Telegram,
     private val msgFactory: MsgFactory,
     private val elasticsearch: Elasticsearch,
-    @Value("\${group.general.autoDeleteMsgCycle}")
-    private val autoDeleteMsgCycle: Long
 ) {
 
-    data class MessageSent(val chatId: Long, val messageId: Int, val time: Long)
-
     private val logger = LoggerFactory.getLogger(Group::class.java)
-    private val autoDeleteMsgThread = Thread({ autoDeleteMessageSent() }, "消息自毁线程")
-    private val messageSents = mutableListOf<MessageSent>()
 
     init {
         subscribeUpdate()
-
-        autoDeleteMsgThread.isDaemon = true
-        autoDeleteMsgThread.start()
     }
 
     private fun subscribeUpdate() {
@@ -95,8 +86,7 @@ class Group(
         }
         sendMessage.disableWebPagePreview(true)
         sendMessage.parseMode(ParseMode.HTML)
-        val sendResponse = botProvider.send(sendMessage)
-        saveMessageSent(sendResponse)
+        botProvider.sendAutoDeleteMessage(sendMessage)
     }
 
     private fun executeByButton(request: BotGroupRequest) {
@@ -167,32 +157,6 @@ class Group(
         val administrators = botProvider.send(getAdministrators)
         val user = administrators.administrators().firstOrNull { it.user().id().toLong() == userId }
         return user != null
-    }
-
-    private fun saveMessageSent(sendResponse: SendResponse) {
-        if (sendResponse.isOk) {
-            val ms = MessageSent(sendResponse.message().chat().id(), sendResponse.message().messageId(), Date().time)
-            messageSents.add(ms)
-        }
-    }
-
-    private fun autoDeleteMessageSent() {
-        while (true) {
-            Thread.sleep(1000)
-            val now = Date().time
-            messageSents.removeIf { messageSent ->
-                try {
-                    if (messageSent.time + autoDeleteMsgCycle * 1000 < now) {
-                        botProvider.sendDeleteMessage(messageSent.chatId, messageSent.messageId)
-                        true
-                    } else {
-                        false
-                    }
-                } catch (e: Throwable) {
-                    true
-                }
-            }
-        }
     }
 
 }

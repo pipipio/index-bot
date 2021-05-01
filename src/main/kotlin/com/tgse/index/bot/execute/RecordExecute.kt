@@ -10,7 +10,7 @@ import com.tgse.index.provider.WatershedProvider
 import org.springframework.stereotype.Component
 
 @Component
-class EnrollAndApproveExecute(
+class RecordExecute(
     private val botProvider: BotProvider,
     private val msgFactory: MsgFactory,
     private val elasticsearch: Elasticsearch,

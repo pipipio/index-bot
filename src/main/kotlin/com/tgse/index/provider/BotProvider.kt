@@ -8,20 +8,25 @@ import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.request.*
 import com.pengrad.telegrambot.response.*
 import com.tgse.index.SetCommandException
+import com.tgse.index.bot.Group
 import com.tgse.index.setting.BotProperties
 import com.tgse.index.setting.ProxyProperties
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 import okhttp3.OkHttpClient
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.net.Proxy
+import java.util.*
 
 
 @Component
 class BotProvider(
     private val botProperties: BotProperties,
-    private val proxyProperties: ProxyProperties
+    private val proxyProperties: ProxyProperties,
+    @Value("\${secretary.autoDeleteMsgCycle}")
+    private val autoDeleteMsgCycle: Long
 ) {
     private val bot: TelegramBot = run {
         if (proxyProperties.enabled) {
@@ -85,6 +90,25 @@ class BotProvider(
         return bot.execute(deleteMessage)
     }
 
+    /**
+     * 发送自毁消息
+     */
+    fun sendAutoDeleteMessage(message: SendMessage) {
+        val sendResponse = send(message)
+        val timer = Timer("auto-delete-message", true)
+        val timerTask = object : TimerTask() {
+            override fun run() {
+                try {
+                    val chatId = sendResponse.message().chat().id()
+                    val messageId = sendResponse.message().messageId()
+                    sendDeleteMessage(chatId, messageId)
+                } catch (e: Throwable) {
+                    // ignore
+                }
+            }
+        }
+        timer.schedule(timerTask, autoDeleteMsgCycle * 1000)
+    }
 
     fun send(answer: AnswerCallbackQuery): BaseResponse {
         return bot.execute(answer)

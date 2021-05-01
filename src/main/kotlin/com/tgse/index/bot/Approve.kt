@@ -2,7 +2,7 @@ package com.tgse.index.bot
 
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.AnswerCallbackQuery
-import com.tgse.index.bot.execute.EnrollAndApproveExecute
+import com.tgse.index.bot.execute.RecordExecute
 import com.tgse.index.datasource.AwaitStatus
 import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.factory.MsgFactory
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service
 
 @Service
 class Approve(
-    private val enrollAndApproveExecute: EnrollAndApproveExecute,
+    private val recordExecute: RecordExecute,
     private val botProvider: BotProvider,
     private val watershedProvider: WatershedProvider,
     private val elasticsearch: Elasticsearch,
@@ -43,7 +43,7 @@ class Approve(
                         }
                         awaitStatus.getAwaitStatus(request.chatId) != null -> {
                             botProvider.sendTyping(request.chatId)
-                            enrollAndApproveExecute.executeByStatus(EnrollAndApproveExecute.Type.Approve, request)
+                            recordExecute.executeByStatus(RecordExecute.Type.Approve, request)
                         }
                         request.update.message().text().startsWith("/") &&request.update.message().text().endsWith("@${botProvider.username}") -> {
                             botProvider.sendTyping(request.chatId)
@@ -106,7 +106,7 @@ class Approve(
         val callbackData = request.update.callbackQuery().data()
         when {
             callbackData.startsWith("approve") || callbackData.startsWith("classification") -> {
-                enrollAndApproveExecute.executeByEnrollButton(EnrollAndApproveExecute.Type.Approve,request)
+                recordExecute.executeByEnrollButton(RecordExecute.Type.Approve,request)
             }
             callbackData.startsWith("page") -> {
 

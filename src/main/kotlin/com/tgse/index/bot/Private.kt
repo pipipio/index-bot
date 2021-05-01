@@ -2,7 +2,7 @@ package com.tgse.index.bot
 
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.*
-import com.tgse.index.bot.execute.EnrollAndApproveExecute
+import com.tgse.index.bot.execute.RecordExecute
 import com.tgse.index.datasource.AwaitStatus
 import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.datasource.Telegram
@@ -20,7 +20,7 @@ import java.util.*
  */
 @Service
 class Private(
-    private val enrollAndApproveExecute: EnrollAndApproveExecute,
+    private val recordExecute: RecordExecute,
     private val botProvider: BotProvider,
     private val watershedProvider: WatershedProvider,
     private val msgFactory: MsgFactory,
@@ -46,7 +46,7 @@ class Private(
                     when {
                         request.update.callbackQuery() != null -> executeByButton(request)
                         awaitStatus.getAwaitStatus(request.chatId) != null ->
-                            enrollAndApproveExecute.executeByStatus(EnrollAndApproveExecute.Type.Enroll, request)
+                            recordExecute.executeByStatus(RecordExecute.Type.Enroll, request)
                         request.update.message().text().startsWith("/") -> executeByCommand(request)
                         request.update.message().text().startsWith("@") -> executeByEnroll(request)
                         request.update.message().text().startsWith("https://t.me/") -> executeByEnroll(request)
@@ -158,7 +158,7 @@ class Private(
         val callbackData = request.update.callbackQuery().data()
         when {
             callbackData.startsWith("enroll") || callbackData.startsWith("classification") -> {
-                enrollAndApproveExecute.executeByEnrollButton(EnrollAndApproveExecute.Type.Enroll, request)
+                recordExecute.executeByEnrollButton(RecordExecute.Type.Enroll, request)
             }
             callbackData.startsWith("page") -> {
 
