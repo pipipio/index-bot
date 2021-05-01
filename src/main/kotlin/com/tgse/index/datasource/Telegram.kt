@@ -3,15 +3,19 @@ package com.tgse.index.datasource
 import com.pengrad.telegrambot.request.GetChat
 import com.pengrad.telegrambot.request.GetChatMembersCount
 import com.tgse.index.provider.BotProvider
+import com.tgse.index.setting.ProxyProperties
 import org.springframework.stereotype.Component
 import org.jsoup.Jsoup
+import java.net.InetSocketAddress
+import java.net.Proxy
 
 /**
  * 获取群组、频道、bot信息
  */
 @Component
 class Telegram(
-    private val botProvider: BotProvider
+    private val botProvider: BotProvider,
+    private val proxyProperties: ProxyProperties
 ) {
 
     enum class TelegramModType {
@@ -55,12 +59,24 @@ class Telegram(
         override val description: String?
     ) : TelegramMod
 
+    private val proxy: Proxy? = run {
+        if (proxyProperties.enabled) {
+            val socketAddress = InetSocketAddress(proxyProperties.ip, proxyProperties.port)
+            Proxy(proxyProperties.type, socketAddress)
+        } else {
+            null
+        }
+    }
+
     /**
      * 公开群组、频道、机器人
      */
     fun getTelegramModFromWeb(username: String): TelegramMod? {
         if (username.isEmpty()) return null
-        val doc = Jsoup.connect("https://t.me/$username").get()
+        val connect = Jsoup.connect("https://t.me/$username")
+        val doc =
+            if (proxyProperties.enabled) connect.proxy(proxy).get()
+            else connect.get()
 
         val isNotFound = doc.select(".tgme_page_wrap .tgme_page .tgme_page_icon").html().contains("tgme_icon_user")
         val title = doc.select(".tgme_page_wrap .tgme_page .tgme_page_title span").text()
@@ -69,13 +85,13 @@ class Telegram(
 
         var fixedDescription: String? = about.replace("<[^>]+>".toRegex(), "")
         fixedDescription = if (fixedDescription!!.isEmpty() || fixedDescription.isBlank()) null else fixedDescription
-        val fixedMembers = when (true) {
+        val fixedMembers = when {
             members.contains(",") -> members.split(',')[0].replace("members", "").replace(" ".toRegex(), "").toLong()
             members.contains("subscribers") -> members.replace("subscribers", "").replace(" ".toRegex(), "").toLong()
             else -> 0L
         }
 
-        return when (true) {
+        return when {
             isNotFound -> null
             members.contains("online") -> TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
             members.contains("subscribers") -> TelegramChannel(username, title, fixedDescription, fixedMembers)

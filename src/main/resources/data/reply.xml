@@ -6,9 +6,7 @@
         </type>
         <content>
             Telegram语言包设置：
-            【 &lt;a href="tg://setlanguage?lang=zhcncc" &gt;简体中文&lt;/a&gt; | &lt;a
-            href="tg://setlanguage?lang=zh-hant-beta" &gt;繁體中文&lt;/a&gt; | &lt;a href="tg://setlanguage?lang=en" &gt;English&lt;/a&gt;
-            】
+            【 &lt;a href="tg://setlanguage?lang=zhcncc" &gt;简体中文&lt;/a&gt; | &lt;a href="tg://setlanguage?lang=zh-hant-beta" &gt;繁體中文&lt;/a&gt; | &lt;a href="tg://setlanguage?lang=en" &gt;English&lt;/a&gt; 】
 
             收录信息及时知：&lt;a href="https://t.me/zh_secretary" &gt;ES-索引公告板&lt;/a&gt;
 
@@ -76,6 +74,14 @@
             请告诉我新的标签，不要恶意使用标签哦。
             标签以”#“开头，多个标签以空格隔开。
             如：#Telegram #新闻
+        </content>
+    </msg>
+    <msg>
+        <type>
+            enroll-submit-verify-classification
+        </type>
+        <content>
+            请编辑分类后再次提交。
         </content>
     </msg>
     <msg>

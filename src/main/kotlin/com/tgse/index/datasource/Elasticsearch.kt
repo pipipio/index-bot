@@ -38,7 +38,7 @@ class Elasticsearch(
         val members: Long?,
         val createTime: Long,
         val createUser: Long,
-        val createUserName: String,
+        val createUserNick: String,
         val status: Boolean
     )
 
@@ -88,7 +88,7 @@ class Elasticsearch(
         if (!response.isExists) return null
         val content = response.sourceAsMap
         val tagsString = content["tags"].toString()
-        val tags = when (true) {
+        val tags = when {
             tagsString.contains(" ") -> tagsString.split(" ")
             tagsString == "null" -> null
             else -> listOf(tagsString)
@@ -97,7 +97,11 @@ class Elasticsearch(
         return Enroll(
             uuid,
             Telegram.TelegramModType.valueOf(content["type"] as String),
-            content["chatId"] as Long?,
+            when (content["chatId"]) {
+                is Int -> (content["chatId"] as Int).toLong()
+                is Long -> content["chatId"] as Long
+                else -> null
+            },
             content["title"] as String,
             content["description"] as String?,
             tags,
@@ -133,7 +137,7 @@ class Elasticsearch(
         builder.field("members", enroll.members)
         builder.field("createTime", enroll.createTime)
         builder.field("createUser", enroll.createUser)
-        builder.field("createUserName", enroll.createUserName)
+        builder.field("createUserName", enroll.createUserNick)
         builder.field("status", enroll.status)
         builder.endObject()
         return builder

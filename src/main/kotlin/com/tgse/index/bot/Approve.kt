@@ -35,17 +35,20 @@ class Approve(
             { request ->
                 try {
                     if (request !is WatershedProvider.BotApproveRequest) return@subscribe
-                    // 输入状态
-                    // todo : 普通文字消息视情况回执状态
-                    botProvider.sendTyping(request.chatId)
                     // 回执
-                    when (true) {
-                        request.update.callbackQuery() != null -> executeByButton(request)
-                        awaitStatus.getAwaitStatus(request.chatId) != null ->
-                            enrollAndApproveExecute.executeByStatus(EnrollAndApproveExecute.Type.Approve,request)
-                        request.update.message().text().startsWith("/") &&
-                                request.update.message().text().endsWith("@${botProvider.username}") ->
+                    when {
+                        request.update.callbackQuery() != null -> {
+                            botProvider.sendTyping(request.chatId)
+                            executeByButton(request)
+                        }
+                        awaitStatus.getAwaitStatus(request.chatId) != null -> {
+                            botProvider.sendTyping(request.chatId)
+                            enrollAndApproveExecute.executeByStatus(EnrollAndApproveExecute.Type.Approve, request)
+                        }
+                        request.update.message().text().startsWith("/") &&request.update.message().text().endsWith("@${botProvider.username}") -> {
+                            botProvider.sendTyping(request.chatId)
                             executeByCommand(request)
+                        }
                     }
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
@@ -101,8 +104,8 @@ class Approve(
         botProvider.send(answer)
 
         val callbackData = request.update.callbackQuery().data()
-        when (true) {
-            callbackData.startsWith("approve"), callbackData.startsWith("classification") -> {
+        when {
+            callbackData.startsWith("approve") || callbackData.startsWith("classification") -> {
                 enrollAndApproveExecute.executeByEnrollButton(EnrollAndApproveExecute.Type.Approve,request)
             }
             callbackData.startsWith("page") -> {

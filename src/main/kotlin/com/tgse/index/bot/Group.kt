@@ -8,6 +8,7 @@ import com.pengrad.telegrambot.response.SendResponse
 import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.datasource.Telegram
 import com.tgse.index.factory.MsgFactory
+import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import com.tgse.index.provider.WatershedProvider.BotGroupRequest
@@ -49,12 +50,13 @@ class Group(
                     // 输入状态
                     botProvider.sendTyping(request.chatId)
                     // 回执
-                    when (true) {
-                        request.update.callbackQuery() != null -> executeByButton(request)
-                        request.update.message().text().startsWith("/") &&
-                                request.update.message().text().endsWith("@${botProvider.username}") ->
+                    when {
+                        request.update.callbackQuery() != null ->
+                            executeByButton(request)
+                        request.update.message().text().startsWith("/") && request.update.message().text().endsWith("@${botProvider.username}") ->
                             executeByCommand(request)
-                        else -> executeByText(request)
+                        else ->
+                            executeByText(request)
                     }
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
@@ -102,7 +104,7 @@ class Group(
         botProvider.send(answer)
 
         val callbackData = request.update.callbackQuery().data()
-        when (true) {
+        when {
             callbackData.startsWith("page") -> {
 
             }
@@ -115,7 +117,7 @@ class Group(
             return msgFactory.makeReplyMsg(request.chatId, "group-bot-authority")
         // 校验提交者权限
         val userId = request.update.message().from().id().toLong()
-        val username = request.update.message().from().username()
+        val userNick = request.update.message().from().nick()
         if (!checkUserAuthority(request.chatId, userId))
             return msgFactory.makeReplyMsg(request.chatId, "group-user-authority")
         // 群组信息
@@ -134,7 +136,7 @@ class Group(
             telegramGroup.members,
             Date().time,
             userId,
-            username,
+            userNick,
             false
         )
         val createEnroll = elasticsearch.addEnroll(enroll)

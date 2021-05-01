@@ -93,14 +93,14 @@ class WatershedProvider(
         // 获取概要内容
         val callbackQuery = update.callbackQuery()
 
-        val chatType = when (true) {
+        val chatType = when {
             update.message() == null && callbackQuery == null -> null
             update.message() != null -> update.message().chat().type()
             callbackQuery != null -> callbackQuery.message().chat().type()
             else -> null
         }
 
-        val chatId = when (true) {
+        val chatId = when {
             update.message() == null && callbackQuery == null -> null
             callbackQuery?.message() != null -> callbackQuery.message().chat().id()
             callbackQuery != null -> callbackQuery.from().id().toLong()

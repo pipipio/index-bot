@@ -7,6 +7,7 @@ import com.tgse.index.datasource.AwaitStatus
 import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.datasource.Telegram
 import com.tgse.index.factory.MsgFactory
+import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import com.tgse.index.provider.WatershedProvider.*
@@ -42,7 +43,7 @@ class Private(
                     // 输入状态
                     botProvider.sendTyping(request.chatId)
                     // 回执
-                    when (true) {
+                    when {
                         request.update.callbackQuery() != null -> executeByButton(request)
                         awaitStatus.getAwaitStatus(request.chatId) != null ->
                             enrollAndApproveExecute.executeByStatus(EnrollAndApproveExecute.Type.Enroll, request)
@@ -97,7 +98,7 @@ class Private(
                     telegramMod.members,
                     Date().time,
                     request.chatId,
-                    request.update.message().chat().username(),
+                    request.update.message().from().nick(),
                     false
                 )
                 val createEnroll = elasticsearch.addEnroll(enroll)
@@ -118,7 +119,7 @@ class Private(
                     null,
                     Date().time,
                     request.chatId,
-                    request.update.message().chat().username(),
+                    request.update.message().from().nick(),
                     false
                 )
                 val createEnroll = elasticsearch.addEnroll(enroll)
@@ -155,8 +156,8 @@ class Private(
         botProvider.send(answer)
 
         val callbackData = request.update.callbackQuery().data()
-        when (true) {
-            callbackData.startsWith("enroll"), callbackData.startsWith("classification") -> {
+        when {
+            callbackData.startsWith("enroll") || callbackData.startsWith("classification") -> {
                 enrollAndApproveExecute.executeByEnrollButton(EnrollAndApproveExecute.Type.Enroll, request)
             }
             callbackData.startsWith("page") -> {

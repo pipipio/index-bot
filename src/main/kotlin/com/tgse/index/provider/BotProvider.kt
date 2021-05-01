@@ -15,16 +15,18 @@ import io.reactivex.subjects.BehaviorSubject
 import okhttp3.OkHttpClient
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
+import java.net.Proxy
+
 
 @Component
 class BotProvider(
     private val botProperties: BotProperties,
     private val proxyProperties: ProxyProperties
 ) {
-    private val bot: TelegramBot by lazy {
+    private val bot: TelegramBot = run {
         if (proxyProperties.enabled) {
             val socketAddress = InetSocketAddress(proxyProperties.ip, proxyProperties.port)
-            val proxy = java.net.Proxy(proxyProperties.type, socketAddress)
+            val proxy = Proxy(proxyProperties.type, socketAddress)
             val okHttpClient = OkHttpClient().newBuilder().proxy(proxy).build()
             TelegramBot.Builder(botProperties.token).okHttpClient(okHttpClient).build()
         } else {

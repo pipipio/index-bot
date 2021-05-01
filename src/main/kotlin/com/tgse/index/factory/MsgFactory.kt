@@ -1,5 +1,6 @@
 package com.tgse.index.factory
 
+import com.pengrad.telegrambot.model.User
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
 import com.pengrad.telegrambot.model.request.ParseMode
@@ -10,6 +11,7 @@ import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.datasource.Reply
 import com.tgse.index.datasource.Telegram
 import com.tgse.index.datasource.Type
+import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import org.springframework.stereotype.Component
 
@@ -59,6 +61,15 @@ class MsgFactory(
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
+    fun makeApproveResultMsg(chatId: Long, enrollId: String, checker: User, isPassed: Boolean): SendMessage {
+        val enroll = elasticsearch.getEnroll(enrollId)!!
+        val detail = makeApproveResultDetail(enroll, checker, isPassed)
+        val keyboard = makeJoinBlacklistKeyboardMarkup(enroll)
+        val msg = SendMessage(chatId, detail)
+        return if (isPassed) msg.parseMode(ParseMode.HTML).disableWebPagePreview(true)
+        else msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+    }
+
     fun makeReplyMsg(chatId: Long, replyType: String): SendMessage {
         return SendMessage(
             chatId,
@@ -92,7 +103,15 @@ class MsgFactory(
     }
 
     private fun makeApproveRecordDetail(enroll: Elasticsearch.Enroll): String {
-        return makeRecordDetail(enroll) + "\n<b>提交者</b>： ${enroll.createUserName}\n"
+        return makeRecordDetail(enroll) + "\n<b>提交者</b>： ${enroll.createUserNick}\n"
+    }
+
+    private fun makeApproveResultDetail(enroll: Elasticsearch.Enroll, checker: User, isPassed: Boolean): String {
+        val result = if (isPassed) "通过" else "不通过"
+        return makeRecordDetail(enroll) +
+                "\n<b>提交者</b>： ${enroll.createUserNick}" +
+                "\n<b>审核者</b>： ${checker.nick()}" +
+                "\n<b>审核结果</b>： $result\n"
     }
 
     private fun makeReplyKeyboardMarkup(): ReplyKeyboardMarkup {
@@ -133,6 +152,23 @@ class MsgFactory(
             counter += countInRow
         }
         return InlineKeyboardMarkup(*buttonLines.toTypedArray())
+    }
+
+    private fun makeJoinBlacklistKeyboardMarkup(enroll: Elasticsearch.Enroll): InlineKeyboardMarkup {
+         val type = when(enroll.type){
+             Telegram.TelegramModType.Channel -> "频道"
+             Telegram.TelegramModType.Group -> "群组"
+             Telegram.TelegramModType.Bot -> "机器人"
+             Telegram.TelegramModType.Person -> throw RuntimeException("收录对象为用户")
+         }
+        return InlineKeyboardMarkup(
+            arrayOf(
+                InlineKeyboardButton("将${type}加入黑名单").callbackData("blacklist:join&record&${enroll.chatId}"),
+            ),
+            arrayOf(
+                InlineKeyboardButton("将提交者加入黑名单").callbackData("blacklist:join&user&${enroll.createUser}"),
+            )
+        )
     }
 
     private fun makeEnrollKeyboardMarkup(id: String): InlineKeyboardMarkup {
