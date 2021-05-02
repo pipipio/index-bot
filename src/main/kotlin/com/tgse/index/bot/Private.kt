@@ -2,8 +2,10 @@ package com.tgse.index.bot
 
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.*
+import com.tgse.index.bot.execute.BlacklistExecute
 import com.tgse.index.bot.execute.RecordExecute
 import com.tgse.index.datasource.AwaitStatus
+import com.tgse.index.datasource.Blacklist
 import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.datasource.Telegram
 import com.tgse.index.factory.MsgFactory
@@ -25,6 +27,8 @@ class Private(
     private val watershedProvider: WatershedProvider,
     private val msgFactory: MsgFactory,
     private val elasticsearch: Elasticsearch,
+    private val blacklist: Blacklist,
+    private val blacklistExecute: BlacklistExecute,
     private val telegram: Telegram,
     private val awaitStatus: AwaitStatus
 ) {
@@ -33,6 +37,7 @@ class Private(
 
     init {
         subscribeUpdate()
+        subscribeApprove()
     }
 
     private fun subscribeUpdate() {
@@ -59,11 +64,35 @@ class Private(
             },
             { throwable ->
                 throwable.printStackTrace()
-                logger.error("Secretary.error")
+                logger.error("Private.error")
                 botProvider.sendErrorMessage(throwable)
             },
             {
-                logger.error("Secretary.complete")
+                logger.error("Private.complete")
+            }
+        )
+    }
+
+    private fun subscribeApprove() {
+        elasticsearch.submitApproveObservable.subscribe(
+            { next ->
+                try {
+                    val (enrollUUID, isPassed) = next
+                    val enroll = elasticsearch.getEnroll(enrollUUID)!!
+                    val msg = msgFactory.makeApproveResultMsg(enroll.createUser, enroll.uuid, isPassed)
+                    botProvider.send(msg)
+                } catch (e: Throwable) {
+                    botProvider.sendErrorMessage(e)
+                    e.printStackTrace()
+                }
+            },
+            { throwable ->
+                throwable.printStackTrace()
+                logger.error("Private.approve.error")
+                botProvider.sendErrorMessage(throwable)
+            },
+            {
+                logger.error("Private.approve.complete")
             }
         )
     }
@@ -76,10 +105,24 @@ class Private(
     }
 
     private fun executeByEnroll(request: BotPrivateRequest) {
+        // 人员黑名单检测
+        val userBlack = blacklist.get(request.chatId)
+        if (userBlack != null) {
+            val user = request.update.message().from()
+            val telegramPerson = Telegram.TelegramPerson(request.chatId, user.username(), user.nick(), null)
+            blacklistExecute.notify(request.chatId, telegramPerson)
+            return
+        }
         // 获取收录内容
-        val id = request.update.message().text().replaceFirst("@", "").replaceFirst("https://t.me/", "")
+        val username = request.update.message().text().replaceFirst("@", "").replaceFirst("https://t.me/", "")
+        val telegramMod = telegram.getTelegramModFromWeb(username)
+        // 收录对象黑名单检测
+        val recordBlack = blacklist.get(username)
+        if (recordBlack != null && telegramMod!=null) {
+            blacklistExecute.notify(request.chatId, telegramMod)
+            return
+        }
         // 回执
-        val telegramMod = telegram.getTelegramModFromWeb(id)
         val sendMessage = when (telegramMod) {
             is Telegram.TelegramGroup -> {
                 msgFactory.makeReplyMsg(request.chatId, "enroll-need-join-group")
@@ -98,8 +141,7 @@ class Private(
                     telegramMod.members,
                     Date().time,
                     request.chatId,
-                    request.update.message().from().nick(),
-                    false
+                    request.update.message().from().nick()
                 )
                 val createEnroll = elasticsearch.addEnroll(enroll)
                 if (!createEnroll) return
@@ -119,8 +161,7 @@ class Private(
                     null,
                     Date().time,
                     request.chatId,
-                    request.update.message().from().nick(),
-                    false
+                    request.update.message().from().nick()
                 )
                 val createEnroll = elasticsearch.addEnroll(enroll)
                 if (!createEnroll) return

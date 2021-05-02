@@ -1,10 +1,14 @@
 package com.tgse.index.bot
 
+import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.AnswerCallbackQuery
 import com.pengrad.telegrambot.request.GetChatAdministrators
+import com.pengrad.telegrambot.request.SendChatAction
 import com.pengrad.telegrambot.request.SendMessage
 import com.pengrad.telegrambot.response.SendResponse
+import com.tgse.index.bot.execute.BlacklistExecute
+import com.tgse.index.datasource.Blacklist
 import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.datasource.Telegram
 import com.tgse.index.factory.MsgFactory
@@ -23,6 +27,8 @@ class Group(
     private val botProvider: BotProvider,
     private val watershedProvider: WatershedProvider,
     private val telegram: Telegram,
+    private val blacklist: Blacklist,
+    private val blacklistExecute: BlacklistExecute,
     private val msgFactory: MsgFactory,
     private val elasticsearch: Elasticsearch,
 ) {
@@ -83,7 +89,7 @@ class Group(
             "setting" -> msgFactory.makeReplyMsg(request.chatId, "setting")
             "help" -> msgFactory.makeReplyMsg(request.chatId, "help-group")
             else -> msgFactory.makeReplyMsg(request.chatId, "can-not-understand")
-        }
+        } ?: return
         sendMessage.disableWebPagePreview(true)
         sendMessage.parseMode(ParseMode.HTML)
         botProvider.sendAutoDeleteMessage(sendMessage)
@@ -101,17 +107,29 @@ class Group(
         }
     }
 
-    private fun executeByEnrollOrUpdate(request: BotGroupRequest): SendMessage {
+    private fun executeByEnrollOrUpdate(request: BotGroupRequest): SendMessage? {
         // 校验bot权限
         if (!checkMyAuthority(request.chatId))
             return msgFactory.makeReplyMsg(request.chatId, "group-bot-authority")
         // 校验提交者权限
-        val userId = request.update.message().from().id().toLong()
-        val userNick = request.update.message().from().nick()
-        if (!checkUserAuthority(request.chatId, userId))
+        val user = request.update.message().from()
+        if (!checkUserAuthority(request.chatId, user.id().toLong()))
             return msgFactory.makeReplyMsg(request.chatId, "group-user-authority")
+        // 人员黑名单检测
+        val userBlack = blacklist.get(user.id().toLong())
+        if (userBlack != null) {
+            val telegramPerson = Telegram.TelegramPerson(user.id().toLong(), user.username(), user.nick(), null)
+            blacklistExecute.notify(request.chatId, telegramPerson)
+            return null
+        }
         // 群组信息
         val telegramGroup = telegram.getTelegramGroupFromChat(request.chatId) ?: throw RuntimeException("群组信息获取失败")
+        // 收录对象黑名单检测
+        val recordBlack = blacklist.get(telegramGroup.chatId!!)
+        if (recordBlack != null) {
+            blacklistExecute.notify(request.chatId, telegramGroup)
+            return null
+        }
         // 入库
         val enroll = Elasticsearch.Enroll(
             UUID.randomUUID().toString(),
@@ -125,14 +143,13 @@ class Group(
             telegramGroup.link,
             telegramGroup.members,
             Date().time,
-            userId,
-            userNick,
-            false
+            user.id().toLong(),
+            user.nick()
         )
         val createEnroll = elasticsearch.addEnroll(enroll)
         if (!createEnroll) throw RuntimeException("群组信息存储失败")
         // 回执
-        val sendMessage = msgFactory.makeEnrollMsg(userId, enroll.uuid)
+        val sendMessage = msgFactory.makeEnrollMsg(user.id().toLong(), enroll.uuid)
         botProvider.send(sendMessage)
         return msgFactory.makeReplyMsg(request.chatId, "pls-check-private")
     }

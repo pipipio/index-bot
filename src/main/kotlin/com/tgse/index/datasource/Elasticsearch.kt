@@ -38,15 +38,14 @@ class Elasticsearch(
         val members: Long?,
         val createTime: Long,
         val createUser: Long,
-        val createUserNick: String,
-        val status: Boolean
+        val createUserNick: String
     )
 
     private val submitEnrollSubject = BehaviorSubject.create<String>()
     val submitEnrollObservable: Observable<String> = submitEnrollSubject.distinct()
 
-    private val submitApproveSubject = BehaviorSubject.create<WatershedProvider.BotRequest>()
-    val submitApproveObservable: Observable<WatershedProvider.BotRequest> = submitApproveSubject.distinct()
+    private val submitApproveSubject = BehaviorSubject.create<Pair<String,Boolean>>()
+    val submitApproveObservable: Observable<Pair<String,Boolean>> = submitApproveSubject.distinct()
 
     fun addEnroll(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
@@ -56,25 +55,19 @@ class Elasticsearch(
     }
 
     fun updateEnroll(enroll: Enroll): Boolean {
-        val sourceEnroll = getEnroll(enroll.uuid)!!
-        if (sourceEnroll.status != enroll.status) throw RuntimeException("此函数不允许修改状态")
-        return updateEnrollDetail(enroll)
-    }
-
-    fun submitEnroll(uuid: String): Boolean {
-        val enroll = getEnroll(uuid)
-        if (enroll!!.status) return true
-        val newEnroll = enroll.copy(status = true)
-        val updateStatus = updateEnrollDetail(newEnroll)
-        if (updateStatus)
-            submitEnrollSubject.onNext(newEnroll.uuid)
-        return updateStatus
-    }
-
-    private fun updateEnrollDetail(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
         val updateRequest = UpdateRequest(elasticsearchProvider.enrollIndexName, enroll.uuid).doc(builder)
         return elasticsearchProvider.updateDocument(updateRequest)
+    }
+
+    fun submitEnroll(uuid: String) {
+        val enroll = getEnroll(uuid)!!
+        submitEnrollSubject.onNext(enroll.uuid)
+    }
+
+    fun approveEnroll(uuid: String, isPassed: Boolean) {
+        val pair = Pair(uuid, isPassed)
+        submitApproveSubject.onNext(pair)
     }
 
     fun deleteEnroll(uuid: String) {
@@ -86,38 +79,7 @@ class Elasticsearch(
         val request = GetRequest(elasticsearchProvider.enrollIndexName, uuid)
         val response = elasticsearchProvider.getDocument(request)
         if (!response.isExists) return null
-        val content = response.sourceAsMap
-        val tagsString = content["tags"].toString()
-        val tags = when {
-            tagsString.contains(" ") -> tagsString.split(" ")
-            tagsString == "null" -> null
-            else -> listOf(tagsString)
-        }
-
-        return Enroll(
-            uuid,
-            Telegram.TelegramModType.valueOf(content["type"] as String),
-            when (content["chatId"]) {
-                is Int -> (content["chatId"] as Int).toLong()
-                is Long -> content["chatId"] as Long
-                else -> null
-            },
-            content["title"] as String,
-            content["description"] as String?,
-            tags,
-            content["classification"] as String?,
-            content["code"] as String?,
-            content["link"] as String?,
-            when (content["members"]) {
-                is Int -> (content["members"] as Int).toLong()
-                is Long -> content["members"] as Long
-                else -> null
-            },
-            content["createTime"] as Long,
-            content["createUser"].toString().toLong(),
-            content["createUserName"] as String,
-            content["status"] as Boolean,
-        )
+        return generateEnrollFromHashMap(uuid, response.sourceAsMap)
     }
 
     private fun generateXContentFromEnroll(enroll: Enroll): XContentBuilder {
@@ -138,9 +100,40 @@ class Elasticsearch(
         builder.field("createTime", enroll.createTime)
         builder.field("createUser", enroll.createUser)
         builder.field("createUserName", enroll.createUserNick)
-        builder.field("status", enroll.status)
         builder.endObject()
         return builder
+    }
+
+    private fun generateEnrollFromHashMap(uuid: String, map: MutableMap<String, Any?>): Enroll {
+        val tagsString = map["tags"].toString()
+        val tags = when {
+            tagsString.contains(" ") -> tagsString.split(" ")
+            tagsString == "null" -> null
+            else -> listOf(tagsString)
+        }
+        return Enroll(
+            uuid,
+            Telegram.TelegramModType.valueOf(map["type"] as String),
+            when (map["chatId"]) {
+                is Int -> (map["chatId"] as Int).toLong()
+                is Long -> map["chatId"] as Long
+                else -> null
+            },
+            map["title"] as String,
+            map["description"] as String?,
+            tags,
+            map["classification"] as String?,
+            map["code"] as String?,
+            map["link"] as String?,
+            when (map["members"]) {
+                is Int -> (map["members"] as Int).toLong()
+                is Long -> map["members"] as Long
+                else -> null
+            },
+            map["createTime"] as Long,
+            map["createUser"].toString().toLong(),
+            map["createUserName"] as String,
+        )
     }
 
 }

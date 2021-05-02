@@ -2,6 +2,7 @@ package com.tgse.index.bot
 
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.AnswerCallbackQuery
+import com.tgse.index.bot.execute.BlacklistExecute
 import com.tgse.index.bot.execute.RecordExecute
 import com.tgse.index.datasource.AwaitStatus
 import com.tgse.index.datasource.Elasticsearch
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service
 @Service
 class Approve(
     private val recordExecute: RecordExecute,
+    private val blacklistExecute: BlacklistExecute,
     private val botProvider: BotProvider,
     private val watershedProvider: WatershedProvider,
     private val elasticsearch: Elasticsearch,
@@ -45,7 +47,8 @@ class Approve(
                             botProvider.sendTyping(request.chatId)
                             recordExecute.executeByStatus(RecordExecute.Type.Approve, request)
                         }
-                        request.update.message().text().startsWith("/") &&request.update.message().text().endsWith("@${botProvider.username}") -> {
+                        request.update.message().text().startsWith("/") && request.update.message().text()
+                            .endsWith("@${botProvider.username}") -> {
                             botProvider.sendTyping(request.chatId)
                             executeByCommand(request)
                         }
@@ -106,7 +109,10 @@ class Approve(
         val callbackData = request.update.callbackQuery().data()
         when {
             callbackData.startsWith("approve") || callbackData.startsWith("classification") -> {
-                recordExecute.executeByEnrollButton(RecordExecute.Type.Approve,request)
+                recordExecute.executeByEnrollButton(RecordExecute.Type.Approve, request)
+            }
+            callbackData.startsWith("blacklist") -> {
+                blacklistExecute.executeByBlacklistButton(request)
             }
             callbackData.startsWith("page") -> {
 

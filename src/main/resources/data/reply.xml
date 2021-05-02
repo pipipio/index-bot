@@ -6,7 +6,9 @@
         </type>
         <content>
             Telegram语言包设置：
-            【 &lt;a href="tg://setlanguage?lang=zhcncc" &gt;简体中文&lt;/a&gt; | &lt;a href="tg://setlanguage?lang=zh-hant-beta" &gt;繁體中文&lt;/a&gt; | &lt;a href="tg://setlanguage?lang=en" &gt;English&lt;/a&gt; 】
+            【 &lt;a href="tg://setlanguage?lang=zhcncc" &gt;简体中文&lt;/a&gt; | &lt;a
+            href="tg://setlanguage?lang=zh-hant-beta" &gt;繁體中文&lt;/a&gt; | &lt;a href="tg://setlanguage?lang=en" &gt;English&lt;/a&gt;
+            】
 
             收录信息及时知：&lt;a href="https://t.me/zh_secretary" &gt;ES-索引公告板&lt;/a&gt;
 
@@ -196,6 +198,40 @@
         </type>
         <content>
             请查看私信。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            blacklist-join
+        </type>
+        <content>
+            执行者：{manager}
+            {black}已被加入黑名单。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            blacklist-left
+        </type>
+        <content>
+            执行者：{manager}
+            {black}已被移出黑名单。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            blacklist-exist-user
+        </type>
+        <content>
+            您因违反用户使用协议，近期内将无法提交收录申请。其他功能不受限制。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            blacklist-exist-record
+        </type>
+        <content>
+            因违反用户使用协议，近期内不受理此{type}的收录申请。
         </content>
     </msg>
     <msg>

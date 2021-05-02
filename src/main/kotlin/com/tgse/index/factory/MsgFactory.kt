@@ -5,12 +5,10 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardButton
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup
+import com.pengrad.telegrambot.request.EditMessageReplyMarkup
 import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.MismatchException
-import com.tgse.index.datasource.Elasticsearch
-import com.tgse.index.datasource.Reply
-import com.tgse.index.datasource.Telegram
-import com.tgse.index.datasource.Type
+import com.tgse.index.datasource.*
 import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import org.springframework.stereotype.Component
@@ -70,10 +68,37 @@ class MsgFactory(
         else msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
+    fun makeApproveResultMsg(chatId: Long, enrollId: String, isPassed: Boolean): SendMessage {
+        val enroll = elasticsearch.getEnroll(enrollId)!!
+        val detail = makeApproveResultDetail(enroll, isPassed)
+        val msg = SendMessage(chatId, detail)
+        return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true)
+    }
+
+    fun makeClearMarkupMsg(chatId: Long, messageId: Int): EditMessageReplyMarkup {
+        return EditMessageReplyMarkup(chatId, messageId).replyMarkup(InlineKeyboardMarkup())
+    }
+
     fun makeReplyMsg(chatId: Long, replyType: String): SendMessage {
         return SendMessage(
             chatId,
             reply.message[replyType]!!.replace("\\{bot.username\\}".toRegex(), botProvider.username)
+        )
+    }
+
+    fun makeBlacklistJoinedReplyMsg(chatId: Long, replyType: String, manager: String, black: Blacklist.Black): SendMessage {
+        return SendMessage(
+            chatId,
+            reply.message[replyType]!!
+                .replace("\\{manager\\}".toRegex(), manager)
+                .replace("\\{black\\}".toRegex(), black.displayName)
+        )
+    }
+
+    fun makeBlacklistExistReplyMsg(chatId: Long, replyType: String, type: String): SendMessage {
+        return SendMessage(
+            chatId,
+            reply.message[replyType]!!.replace("\\{type\\}".toRegex(), type)
         )
     }
 
@@ -107,10 +132,16 @@ class MsgFactory(
     }
 
     private fun makeApproveResultDetail(enroll: Elasticsearch.Enroll, checker: User, isPassed: Boolean): String {
-        val result = if (isPassed) "通过" else "不通过"
+        val result = if (isPassed) "通过" else "未通过"
         return makeRecordDetail(enroll) +
                 "\n<b>提交者</b>： ${enroll.createUserNick}" +
                 "\n<b>审核者</b>： ${checker.nick()}" +
+                "\n<b>审核结果</b>： $result\n"
+    }
+
+    private fun makeApproveResultDetail(enroll: Elasticsearch.Enroll,  isPassed: Boolean): String {
+        val result = if (isPassed) "通过" else "未通过"
+        return makeRecordDetail(enroll) +
                 "\n<b>审核结果</b>： $result\n"
     }
 
@@ -155,18 +186,26 @@ class MsgFactory(
     }
 
     private fun makeJoinBlacklistKeyboardMarkup(enroll: Elasticsearch.Enroll): InlineKeyboardMarkup {
-         val type = when(enroll.type){
-             Telegram.TelegramModType.Channel -> "频道"
-             Telegram.TelegramModType.Group -> "群组"
-             Telegram.TelegramModType.Bot -> "机器人"
-             Telegram.TelegramModType.Person -> throw RuntimeException("收录对象为用户")
-         }
+        val type = when (enroll.type) {
+            Telegram.TelegramModType.Channel -> "频道"
+            Telegram.TelegramModType.Group -> "群组"
+            Telegram.TelegramModType.Bot -> "机器人"
+            Telegram.TelegramModType.Person -> throw RuntimeException("收录对象为用户")
+        }
         return InlineKeyboardMarkup(
             arrayOf(
-                InlineKeyboardButton("将${type}加入黑名单").callbackData("blacklist:join&record&${enroll.chatId}"),
+                run {
+                    val callbackData =
+                        if (enroll.chatId != null) "blacklist:join&${Blacklist.BlackType.Record}&${enroll.uuid}"
+                        else "blacklist:join&${Blacklist.BlackType.Record}&${enroll.uuid}"
+                    InlineKeyboardButton("将${type}加入黑名单").callbackData(callbackData)
+                }
             ),
             arrayOf(
-                InlineKeyboardButton("将提交者加入黑名单").callbackData("blacklist:join&user&${enroll.createUser}"),
+                run {
+                    val callbackData = "blacklist:join&${Blacklist.BlackType.User}&${enroll.uuid}"
+                    InlineKeyboardButton("将提交者加入黑名单").callbackData(callbackData)
+                }
             )
         )
     }

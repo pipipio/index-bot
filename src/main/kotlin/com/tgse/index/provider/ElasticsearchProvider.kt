@@ -7,6 +7,8 @@ import org.elasticsearch.action.delete.DeleteResponse
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.get.GetResponse
 import org.elasticsearch.action.index.IndexRequest
+import org.elasticsearch.action.search.SearchRequest
+import org.elasticsearch.action.search.SearchResponse
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.RestClient
@@ -20,6 +22,7 @@ import org.springframework.stereotype.Component
 @Component
 class ElasticsearchProvider : AutoCloseable {
 
+    val blackListIndexName = "blacklist"
     val enrollIndexName = "enroll"
     val recordIndexName = "record"
     private val client = RestHighLevelClient(
@@ -30,8 +33,15 @@ class ElasticsearchProvider : AutoCloseable {
     )
 
     init {
+        initializeBlacklist()
         initializeEnroll()
 //        initializeRecord()
+    }
+
+    private fun initializeBlacklist() {
+        val exist = checkIndexExist(blackListIndexName)
+        if (exist) deleteIndex(blackListIndexName)
+        createIndex(blackListIndexName)
     }
 
     private fun initializeEnroll() {
@@ -147,6 +157,10 @@ class ElasticsearchProvider : AutoCloseable {
      */
     fun deleteDocument(request: DeleteRequest): DeleteResponse {
         return client.delete(request, RequestOptions.DEFAULT)
+    }
+
+    fun search(searchRequest: SearchRequest): SearchResponse {
+        return client.search(searchRequest, RequestOptions.DEFAULT)
     }
 
     override fun close() {

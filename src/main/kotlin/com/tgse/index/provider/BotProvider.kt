@@ -93,7 +93,7 @@ class BotProvider(
     /**
      * 发送自毁消息
      */
-    fun sendAutoDeleteMessage(message: SendMessage) {
+    fun sendAutoDeleteMessage(message: SendMessage): BaseResponse {
         val sendResponse = send(message)
         val timer = Timer("auto-delete-message", true)
         val timerTask = object : TimerTask() {
@@ -108,6 +108,7 @@ class BotProvider(
             }
         }
         timer.schedule(timerTask, autoDeleteMsgCycle * 1000)
+        return sendResponse
     }
 
     fun send(answer: AnswerCallbackQuery): BaseResponse {
@@ -116,6 +117,20 @@ class BotProvider(
 
     fun send(message: EditMessageReplyMarkup): BaseResponse {
         return bot.execute(message)
+    }
+
+    fun sendDelay(message: EditMessageReplyMarkup, delay: Long) {
+        val timer = Timer("delay-message", true)
+        val timerTask = object : TimerTask() {
+            override fun run() {
+                try {
+                    send(message)
+                } catch (e: Throwable) {
+                    // ignore
+                }
+            }
+        }
+        timer.schedule(timerTask, delay)
     }
 
     fun send(action: GetChat): GetChatResponse {

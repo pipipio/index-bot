@@ -54,6 +54,7 @@ class Telegram(
     ) : TelegramMod
 
     data class TelegramPerson(
+        val chatId: Long?,
         override val username: String,
         override val title: String,
         override val description: String?
@@ -96,7 +97,7 @@ class Telegram(
             members.contains("online") -> TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
             members.contains("subscribers") -> TelegramChannel(username, title, fixedDescription, fixedMembers)
             members.toLowerCase().endsWith("bot") -> TelegramBot(username, title, fixedDescription)
-            else -> TelegramPerson(username, title, fixedDescription)
+            else -> TelegramPerson(null, username, title, fixedDescription)
         }
     }
 

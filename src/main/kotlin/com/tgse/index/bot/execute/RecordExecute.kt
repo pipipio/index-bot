@@ -4,9 +4,9 @@ import com.tgse.index.MismatchException
 import com.tgse.index.datasource.AwaitStatus
 import com.tgse.index.datasource.Elasticsearch
 import com.tgse.index.factory.MsgFactory
-import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 @Component
@@ -14,7 +14,9 @@ class RecordExecute(
     private val botProvider: BotProvider,
     private val msgFactory: MsgFactory,
     private val elasticsearch: Elasticsearch,
-    private val awaitStatus: AwaitStatus
+    private val awaitStatus: AwaitStatus,
+    @Value("\${secretary.autoDeleteMsgCycle}")
+    private val autoDeleteMsgCycle: Long
 ) {
     enum class Type {
         Enroll,
@@ -26,20 +28,20 @@ class RecordExecute(
         val callbackDataVal =
             callbackData.replace("enroll:", "").replace("approve:", "").replace("classification:", "").split("&")
         val field = callbackDataVal[0]
-        val uuid = callbackDataVal[1]
+        val enrollUUID = callbackDataVal[1]
         when {
             // 通过按钮修改收录申请信息
             callbackData.startsWith("classification") -> {
                 // 修改数据
-                val enroll = elasticsearch.getEnroll(uuid)!!
+                val enroll = elasticsearch.getEnroll(enrollUUID)!!
                 val newEnroll = enroll.copy(classification = field)
                 elasticsearch.updateEnroll(newEnroll)
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 // 回执新消息
                 val msg = when (type) {
-                    Type.Enroll -> msgFactory.makeEnrollMsg(request.chatId!!, uuid)
-                    Type.Approve -> msgFactory.makeApproveMsg(request.chatId!!, uuid)
+                    Type.Enroll -> msgFactory.makeEnrollMsg(request.chatId!!, enrollUUID)
+                    Type.Approve -> msgFactory.makeApproveMsg(request.chatId!!, enrollUUID)
                 }
                 botProvider.send(msg)
             }
@@ -54,32 +56,32 @@ class RecordExecute(
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 // 回执新消息
-
                 val msg = when (type) {
-                    Type.Enroll -> msgFactory.makeEnrollChangeClassificationMsg(request.chatId!!, uuid)
-                    Type.Approve -> msgFactory.makeApproveChangeClassificationMsg(request.chatId!!, uuid)
+                    Type.Enroll -> msgFactory.makeEnrollChangeClassificationMsg(request.chatId!!, enrollUUID)
+                    Type.Approve -> msgFactory.makeApproveChangeClassificationMsg(request.chatId!!, enrollUUID)
                 }
                 botProvider.send(msg)
             }
             // 提交
             field == "submit" -> {
                 // 提交之前必须选择分类
-                val enroll = elasticsearch.getEnroll(uuid)!!
+                val enroll = elasticsearch.getEnroll(enrollUUID)!!
                 if (enroll.classification == null) {
                     val msg = msgFactory.makeReplyMsg(request.chatId!!, "enroll-submit-verify-classification")
                     botProvider.send(msg)
                     return
                 }
                 // 提交信息
-                elasticsearch.submitEnroll(uuid)
-                botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
+                elasticsearch.submitEnroll(enrollUUID)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
+                val editMsg = msgFactory.makeClearMarkupMsg(request.chatId!!, request.messageId!!)
+                botProvider.send(editMsg)
                 val msg = msgFactory.makeReplyMsg(request.chatId!!, "enroll-submit")
                 botProvider.send(msg)
             }
             // 取消
             field == "cancel" -> {
-                elasticsearch.deleteEnroll(uuid)
+                elasticsearch.deleteEnroll(enrollUUID)
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
                 val msg = msgFactory.makeReplyMsg(request.chatId!!, "cancel")
@@ -88,21 +90,23 @@ class RecordExecute(
             // 通过
             field == "pass" -> {
                 val checker = request.update.callbackQuery().from()
-                val msg = msgFactory.makeApproveResultMsg(request.chatId!!, uuid, checker, true)
-                elasticsearch.deleteEnroll(uuid)
+                val msg = msgFactory.makeApproveResultMsg(request.chatId!!, enrollUUID, checker, true)
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
                 botProvider.send(msg)
                 // todo: record
+                elasticsearch.approveEnroll(enrollUUID, true)
             }
             // 不通过
             field == "fail" -> {
-                val checker = request.update.callbackQuery().from()
-                val msg = msgFactory.makeApproveResultMsg(request.chatId!!, uuid, checker, false)
-                elasticsearch.deleteEnroll(uuid)
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
-                botProvider.send(msg)
+                val checker = request.update.callbackQuery().from()
+                val msg = msgFactory.makeApproveResultMsg(request.chatId!!, enrollUUID, checker, false)
+                val msgResponse = botProvider.send(msg)
+                val editMsg = msgFactory.makeClearMarkupMsg(request.chatId!!, msgResponse.message().messageId())
+                botProvider.sendDelay(editMsg, autoDeleteMsgCycle * 1000)
+                elasticsearch.approveEnroll(enrollUUID, false)
             }
         }
     }
