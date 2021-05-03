@@ -17,23 +17,23 @@ import org.springframework.stereotype.Component
 class MsgFactory(
     private val reply: Reply,
     private val type: Type,
-    private val elasticsearch: Elasticsearch,
+    private val enrollElastic: EnrollElastic,
+    private val recordElastic: RecordElastic,
     private val botProvider: BotProvider
 ) {
 
     fun makeEnrollMsg(chatId: Long, enrollId: String): SendMessage {
-        val enroll = elasticsearch.getEnroll(enrollId)!!
+        val enroll = enrollElastic.getEnroll(enrollId)!!
         val detail = makeRecordDetail(enroll)
         val keyboard = makeEnrollKeyboardMarkup(enrollId)
         return SendMessage(chatId, detail)
-            .replyMarkup(keyboard)
             .parseMode(ParseMode.HTML)
             .disableWebPagePreview(true)
             .replyMarkup(keyboard)
     }
 
     fun makeEnrollChangeClassificationMsg(chatId: Long, enrollId: String): SendMessage {
-        val enroll = elasticsearch.getEnroll(enrollId)!!
+        val enroll = enrollElastic.getEnroll(enrollId)!!
         val detail = makeRecordDetail(enroll)
         val keyboard = makeInlineKeyboardMarkup(enrollId)
         val msg = SendMessage(chatId, detail)
@@ -41,27 +41,26 @@ class MsgFactory(
     }
 
     fun makeApproveMsg(chatId: Long, enrollId: String): SendMessage {
-        val enroll = elasticsearch.getEnroll(enrollId)!!
+        val enroll = enrollElastic.getEnroll(enrollId)!!
         val detail = makeApproveRecordDetail(enroll)
         val keyboard = makeApproveKeyboardMarkup(enrollId)
         return SendMessage(chatId, detail)
             .replyMarkup(keyboard)
             .parseMode(ParseMode.HTML)
             .disableWebPagePreview(true)
-            .replyMarkup(keyboard)
     }
 
     fun makeApproveChangeClassificationMsg(chatId: Long, enrollId: String): SendMessage {
-        val enroll = elasticsearch.getEnroll(enrollId)!!
+        val enroll = enrollElastic.getEnroll(enrollId)!!
         val detail = makeApproveRecordDetail(enroll)
         val keyboard = makeInlineKeyboardMarkup(enrollId)
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeApproveResultMsg(chatId: Long, enrollId: String, checker: User, isPassed: Boolean): SendMessage {
-        val enroll = elasticsearch.getEnroll(enrollId)!!
-        val detail = makeApproveResultDetail(enroll, checker, isPassed)
+    fun makeApproveResultMsg(chatId: Long, enrollId: String, manager: User, isPassed: Boolean): SendMessage {
+        val enroll = enrollElastic.getEnroll(enrollId)!!
+        val detail = makeApproveResultDetail(enroll, manager, isPassed)
         val keyboard = makeJoinBlacklistKeyboardMarkup(enroll)
         val msg = SendMessage(chatId, detail)
         return if (isPassed) msg.parseMode(ParseMode.HTML).disableWebPagePreview(true)
@@ -69,10 +68,30 @@ class MsgFactory(
     }
 
     fun makeApproveResultMsg(chatId: Long, enrollId: String, isPassed: Boolean): SendMessage {
-        val enroll = elasticsearch.getEnroll(enrollId)!!
+        val enroll = enrollElastic.getEnroll(enrollId)!!
         val detail = makeApproveResultDetail(enroll, isPassed)
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true)
+    }
+
+    fun makeBulletinMsg(chatId: Long, record: RecordElastic.Record): SendMessage {
+        val detail = makeRecordDetail(record)
+        val keyboard = makePointKeyboardMarkup(record.uuid)
+        return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+    }
+
+    fun makeRecordMsg(chatId: Long, recordUUID: String): SendMessage {
+        val record = recordElastic.getRecord(recordUUID)!!
+        val detail = makeRecordDetail(record)
+        val keyboard = makeFeedbackKeyboardMarkup(recordUUID)
+        return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+    }
+
+    fun makeFeedbackMsg(chatId: Long, recordUUID: String): SendMessage {
+        val record = recordElastic.getRecord(recordUUID)!!
+        val detail = makeRecordDetail(record)
+        val keyboard = makeManageKeyboardMarkup(recordUUID)
+        return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
     fun makeClearMarkupMsg(chatId: Long, messageId: Int): EditMessageReplyMarkup {
@@ -102,6 +121,15 @@ class MsgFactory(
         )
     }
 
+    fun makeRemoveRecordReplyMsg(chatId: Long, manager: String, recordTitle: String): SendMessage {
+        return SendMessage(
+            chatId,
+            reply.message["remove-record"]!!
+                .replace("\\{manager\\}".toRegex(), manager)
+                .replace("\\{record\\}".toRegex(), recordTitle)
+        )
+    }
+
     fun makeListReplyMsg(chatId: Long): SendMessage {
         val keyboard = makeReplyKeyboardMarkup()
         return SendMessage(chatId, "list").replyMarkup(keyboard)
@@ -114,7 +142,20 @@ class MsgFactory(
         }
     }
 
-    private fun makeRecordDetail(enroll: Elasticsearch.Enroll): String {
+    private fun makeRecordDetail(record: RecordElastic.Record): String {
+        val link = if (record.username != null) "https://t.me/${record.username}" else record.link
+        val detailSB = StringBuffer()
+        detailSB.append("<b>标题</b>： <a href=\"$link\">${record.title}</a>\n")
+        detailSB.append("<b>标签</b>： ${if (record.tags == null) "暂无" else record.tags.joinToString(" ")}\n")
+        detailSB.append("<b>分类</b>： ${record.classification ?: "暂无"}\n")
+        detailSB.append("<b>简介</b>：\n")
+        val description = if (record.description == null) ""
+        else record.description.replace("<", "&lt;").replace(">", "&gt;") + "\n"
+        detailSB.append(description)
+        return detailSB.toString()
+    }
+
+    private fun makeRecordDetail(enroll: EnrollElastic.Enroll): String {
         val link = if (enroll.username != null) "https://t.me/${enroll.username}" else enroll.link
         val detailSB = StringBuffer()
         detailSB.append("<b>标题</b>： <a href=\"$link\">${enroll.title}</a>\n")
@@ -127,11 +168,11 @@ class MsgFactory(
         return detailSB.toString()
     }
 
-    private fun makeApproveRecordDetail(enroll: Elasticsearch.Enroll): String {
+    private fun makeApproveRecordDetail(enroll: EnrollElastic.Enroll): String {
         return makeRecordDetail(enroll) + "\n<b>提交者</b>： ${enroll.createUserNick}\n"
     }
 
-    private fun makeApproveResultDetail(enroll: Elasticsearch.Enroll, checker: User, isPassed: Boolean): String {
+    private fun makeApproveResultDetail(enroll: EnrollElastic.Enroll, checker: User, isPassed: Boolean): String {
         val result = if (isPassed) "通过" else "未通过"
         return makeRecordDetail(enroll) +
                 "\n<b>提交者</b>： ${enroll.createUserNick}" +
@@ -139,7 +180,7 @@ class MsgFactory(
                 "\n<b>审核结果</b>： $result\n"
     }
 
-    private fun makeApproveResultDetail(enroll: Elasticsearch.Enroll,  isPassed: Boolean): String {
+    private fun makeApproveResultDetail(enroll: EnrollElastic.Enroll, isPassed: Boolean): String {
         val result = if (isPassed) "通过" else "未通过"
         return makeRecordDetail(enroll) +
                 "\n<b>审核结果</b>： $result\n"
@@ -185,7 +226,31 @@ class MsgFactory(
         return InlineKeyboardMarkup(*buttonLines.toTypedArray())
     }
 
-    private fun makeJoinBlacklistKeyboardMarkup(enroll: Elasticsearch.Enroll): InlineKeyboardMarkup {
+    private fun makePointKeyboardMarkup(enrollUUID: String): InlineKeyboardMarkup {
+        return InlineKeyboardMarkup(
+            arrayOf(
+                    InlineKeyboardButton("查询").url("https://t.me/${botProvider.username}?start=$enrollUUID")
+            )
+        )
+    }
+
+    private fun makeFeedbackKeyboardMarkup(recordUUID: String): InlineKeyboardMarkup {
+        return InlineKeyboardMarkup(
+            arrayOf(
+                InlineKeyboardButton("反馈").callbackData("feedback:$recordUUID")
+            )
+        )
+    }
+
+    private fun makeManageKeyboardMarkup(recordUUID: String): InlineKeyboardMarkup {
+        return InlineKeyboardMarkup(
+            arrayOf(
+                InlineKeyboardButton("移除").callbackData("remove:$recordUUID")
+            )
+        )
+    }
+
+    private fun makeJoinBlacklistKeyboardMarkup(enroll: EnrollElastic.Enroll): InlineKeyboardMarkup {
         val type = when (enroll.type) {
             Telegram.TelegramModType.Channel -> "频道"
             Telegram.TelegramModType.Group -> "群组"

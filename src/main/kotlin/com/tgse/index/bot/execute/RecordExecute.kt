@@ -1,19 +1,24 @@
 package com.tgse.index.bot.execute
 
 import com.tgse.index.MismatchException
+import com.tgse.index.board.Bulletin
 import com.tgse.index.datasource.AwaitStatus
-import com.tgse.index.datasource.Elasticsearch
+import com.tgse.index.datasource.EnrollElastic
+import com.tgse.index.datasource.RecordElastic
 import com.tgse.index.factory.MsgFactory
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.util.*
 
 @Component
 class RecordExecute(
+    private val bulletin: Bulletin,
     private val botProvider: BotProvider,
     private val msgFactory: MsgFactory,
-    private val elasticsearch: Elasticsearch,
+    private val enrollElastic: EnrollElastic,
+    private val recordElastic: RecordElastic,
     private val awaitStatus: AwaitStatus,
     @Value("\${secretary.autoDeleteMsgCycle}")
     private val autoDeleteMsgCycle: Long
@@ -31,11 +36,11 @@ class RecordExecute(
         val enrollUUID = callbackDataVal[1]
         when {
             // 通过按钮修改收录申请信息
-            callbackData.startsWith("classification") -> {
+            callbackData.startsWith("classification:") -> {
                 // 修改数据
-                val enroll = elasticsearch.getEnroll(enrollUUID)!!
+                val enroll = enrollElastic.getEnroll(enrollUUID)!!
                 val newEnroll = enroll.copy(classification = field)
-                elasticsearch.updateEnroll(newEnroll)
+                enrollElastic.updateEnroll(newEnroll)
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 // 回执新消息
@@ -65,14 +70,14 @@ class RecordExecute(
             // 提交
             field == "submit" -> {
                 // 提交之前必须选择分类
-                val enroll = elasticsearch.getEnroll(enrollUUID)!!
+                val enroll = enrollElastic.getEnroll(enrollUUID)!!
                 if (enroll.classification == null) {
                     val msg = msgFactory.makeReplyMsg(request.chatId!!, "enroll-submit-verify-classification")
                     botProvider.send(msg)
                     return
                 }
                 // 提交信息
-                elasticsearch.submitEnroll(enrollUUID)
+                enrollElastic.submitEnroll(enrollUUID)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
                 val editMsg = msgFactory.makeClearMarkupMsg(request.chatId!!, request.messageId!!)
                 botProvider.send(editMsg)
@@ -81,7 +86,7 @@ class RecordExecute(
             }
             // 取消
             field == "cancel" -> {
-                elasticsearch.deleteEnroll(enrollUUID)
+                enrollElastic.deleteEnroll(enrollUUID)
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
                 val msg = msgFactory.makeReplyMsg(request.chatId!!, "cancel")
@@ -89,13 +94,31 @@ class RecordExecute(
             }
             // 通过
             field == "pass" -> {
-                val checker = request.update.callbackQuery().from()
-                val msg = msgFactory.makeApproveResultMsg(request.chatId!!, enrollUUID, checker, true)
+                val manger = request.update.callbackQuery().from()
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
+                val msg = msgFactory.makeApproveResultMsg(request.chatId!!, enrollUUID, manger, true)
                 botProvider.send(msg)
-                // todo: record
-                elasticsearch.approveEnroll(enrollUUID, true)
+                enrollElastic.approveEnroll(enrollUUID, true)
+                // record
+                val enroll = enrollElastic.getEnroll(enrollUUID)!!
+                val record = RecordElastic.Record(
+                    UUID.randomUUID().toString(),
+                    null,
+                    enroll.type,
+                    enroll.chatId,
+                    enroll.title,
+                    enroll.description,
+                    enroll.tags,
+                    enroll.classification,
+                    enroll.username,
+                    enroll.link,
+                    enroll.members,
+                    enroll.createTime,
+                    enroll.createUser,
+                    Date().time
+                )
+                bulletin.publish(record)
             }
             // 不通过
             field == "fail" -> {
@@ -106,7 +129,7 @@ class RecordExecute(
                 val msgResponse = botProvider.send(msg)
                 val editMsg = msgFactory.makeClearMarkupMsg(request.chatId!!, msgResponse.message().messageId())
                 botProvider.sendDelay(editMsg, autoDeleteMsgCycle * 1000)
-                elasticsearch.approveEnroll(enrollUUID, false)
+                enrollElastic.approveEnroll(enrollUUID, false)
             }
         }
     }
@@ -118,16 +141,16 @@ class RecordExecute(
         val uuid = callbackDataVal[1]
         val msgContent = request.update.message().text()
         try {
-            val enroll = elasticsearch.getEnroll(uuid)!!
+            val enroll = enrollElastic.getEnroll(uuid)!!
             when (field) {
                 "title" -> {
                     if (msgContent.length > 26) throw MismatchException("标题太长，修改失败")
                     val newEnroll = enroll.copy(title = msgContent)
-                    elasticsearch.updateEnroll(newEnroll)
+                    enrollElastic.updateEnroll(newEnroll)
                 }
                 "about" -> {
                     val newEnroll = enroll.copy(description = msgContent)
-                    elasticsearch.updateEnroll(newEnroll)
+                    enrollElastic.updateEnroll(newEnroll)
                 }
                 "tags" -> {
                     val tags = mutableListOf<String>()
@@ -138,7 +161,7 @@ class RecordExecute(
                     }
                     if (tags.size < 1) throw MismatchException("格式有误，修改失败")
                     val newEnroll = enroll.copy(tags = tags)
-                    elasticsearch.updateEnroll(newEnroll)
+                    enrollElastic.updateEnroll(newEnroll)
                 }
             }
             // 清除状态

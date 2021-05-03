@@ -1,12 +1,7 @@
 package com.tgse.index.datasource
 
 import com.tgse.index.provider.ElasticsearchProvider
-import com.tgse.index.provider.WatershedProvider
-import io.reactivex.Observable
-import io.reactivex.subjects.BehaviorSubject
-import org.apache.lucene.util.QueryBuilder
 import org.elasticsearch.action.delete.DeleteRequest
-import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.update.UpdateRequest
@@ -16,7 +11,6 @@ import org.elasticsearch.index.query.MatchQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.springframework.stereotype.Component
-import java.lang.RuntimeException
 
 /**
  * 黑名单
@@ -28,6 +22,17 @@ import java.lang.RuntimeException
 class Blacklist(
     private val elasticsearchProvider: ElasticsearchProvider
 ) {
+
+    init {
+        initializeBlacklist()
+    }
+
+    private fun initializeBlacklist() {
+        val exist = elasticsearchProvider.checkIndexExist(elasticsearchProvider.blackListIndexName)
+        if (exist) return
+        // if (exist) elasticsearchProvider.deleteIndex(elasticsearchProvider.blackListIndexName)
+        elasticsearchProvider.createIndex(elasticsearchProvider.blackListIndexName)
+    }
 
     enum class BlackType {
         Record,
@@ -55,7 +60,7 @@ class Blacklist(
     }
 
     private fun getBlack(queryBuilder: MatchQueryBuilder): Black? {
-        val searchRequest = SearchRequest()
+        val searchRequest = SearchRequest(elasticsearchProvider.blackListIndexName)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.query(queryBuilder)
         searchRequest.source(searchSourceBuilder)

@@ -15,8 +15,6 @@ import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.RestHighLevelClient
 import org.elasticsearch.client.indices.CreateIndexRequest
 import org.elasticsearch.client.indices.GetIndexRequest
-import org.elasticsearch.common.settings.Settings
-import org.elasticsearch.common.xcontent.XContentType
 import org.springframework.stereotype.Component
 
 @Component
@@ -32,63 +30,10 @@ class ElasticsearchProvider : AutoCloseable {
         )
     )
 
-    init {
-        initializeBlacklist()
-        initializeEnroll()
-//        initializeRecord()
-    }
-
-    private fun initializeBlacklist() {
-        val exist = checkIndexExist(blackListIndexName)
-        if (exist) deleteIndex(blackListIndexName)
-        createIndex(blackListIndexName)
-    }
-
-    private fun initializeEnroll() {
-        val exist = checkIndexExist(enrollIndexName)
-        if (exist) return
-        createIndex(enrollIndexName)
-    }
-
-    private fun initializeRecord() {
-        val exist = checkIndexExist(recordIndexName)
-        if (exist) return
-//        if (exist) deleteIndex(indexName)
-        val request = CreateIndexRequest("")
-
-        request.settings(
-            Settings.builder()
-                .put("index.number_of_shards", 3)
-                .put("index.number_of_replicas", 2)
-        )
-
-        request.mapping(
-            """
-            {
-                "properties":{
-                    "type":{
-                        "type":"keyword"
-                    },
-                    "label":{
-                        "type":"text"
-                    },
-                    "sort":{
-                        "type":"short"
-                    },
-                }
-            }
-            """.trimIndent(),
-            XContentType.JSON
-        )
-
-        val response = client.indices().create(request, RequestOptions.DEFAULT)
-    }
-
-
     /**
      * 检查索引是否存在
      */
-    private fun checkIndexExist(indexName: String): Boolean {
+    fun checkIndexExist(indexName: String): Boolean {
         val getRequest = GetIndexRequest(indexName)
         return client.indices().exists(getRequest, RequestOptions.DEFAULT)
     }
@@ -96,7 +41,7 @@ class ElasticsearchProvider : AutoCloseable {
     /**
      * 创建索引
      */
-    private fun createIndex(indexName: String): Boolean {
+    fun createIndex(indexName: String): Boolean {
         val createRequest = CreateIndexRequest(indexName)
         val response = client.indices().create(createRequest, RequestOptions.DEFAULT)
         return response.isAcknowledged
@@ -105,7 +50,7 @@ class ElasticsearchProvider : AutoCloseable {
     /**
      * 创建索引
      */
-    private fun createIndex(createRequest: CreateIndexRequest): Boolean {
+    fun createIndex(createRequest: CreateIndexRequest): Boolean {
         val response = client.indices().create(createRequest, RequestOptions.DEFAULT)
         return response.isAcknowledged
     }
@@ -113,7 +58,7 @@ class ElasticsearchProvider : AutoCloseable {
     /**
      * 删除索引
      */
-    private fun deleteIndex(indexName: String): Boolean {
+    fun deleteIndex(indexName: String): Boolean {
         val deleteRequest = DeleteIndexRequest(indexName)
         val response = client.indices().delete(deleteRequest, RequestOptions.DEFAULT)
         return response.isAcknowledged

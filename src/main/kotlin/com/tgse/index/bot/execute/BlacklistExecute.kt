@@ -1,7 +1,7 @@
 package com.tgse.index.bot.execute
 
 import com.tgse.index.datasource.Blacklist
-import com.tgse.index.datasource.Elasticsearch
+import com.tgse.index.datasource.EnrollElastic
 import com.tgse.index.datasource.Telegram
 import com.tgse.index.factory.MsgFactory
 import com.tgse.index.nick
@@ -15,7 +15,7 @@ class BlacklistExecute(
     private val botProvider: BotProvider,
     private val msgFactory: MsgFactory,
     private val blacklist: Blacklist,
-    private val elasticsearch: Elasticsearch
+    private val enrollElastic: EnrollElastic
 ) {
 
     fun executeByBlacklistButton(request: WatershedProvider.BotRequest) {
@@ -26,7 +26,7 @@ class BlacklistExecute(
         val oper = callbackDataVal[0]
         val type = Blacklist.BlackType.valueOf(callbackDataVal[1])
         val enrollUUID = callbackDataVal[2]
-        val enroll = elasticsearch.getEnroll(enrollUUID)!!
+        val enroll = enrollElastic.getEnroll(enrollUUID)!!
 
         // 检查是否已在黑名单
         val blackExist = when (type) {

@@ -2,11 +2,14 @@ package com.tgse.index.bot
 
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.AnswerCallbackQuery
+import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.bot.execute.BlacklistExecute
 import com.tgse.index.bot.execute.RecordExecute
 import com.tgse.index.datasource.AwaitStatus
-import com.tgse.index.datasource.Elasticsearch
+import com.tgse.index.datasource.EnrollElastic
+import com.tgse.index.datasource.RecordElastic
 import com.tgse.index.factory.MsgFactory
+import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import org.slf4j.LoggerFactory
@@ -19,7 +22,8 @@ class Approve(
     private val blacklistExecute: BlacklistExecute,
     private val botProvider: BotProvider,
     private val watershedProvider: WatershedProvider,
-    private val elasticsearch: Elasticsearch,
+    private val enrollElastic: EnrollElastic,
+    private val recordElastic: RecordElastic,
     private val awaitStatus: AwaitStatus,
     private val msgFactory: MsgFactory,
     @Value("\${group.approve.id}")
@@ -29,7 +33,9 @@ class Approve(
 
     init {
         subscribeUpdate()
+        subscribeFeedback()
         subscribeSubmitEnroll()
+        subscribeDeleteRecord()
     }
 
     private fun subscribeUpdate() {
@@ -60,17 +66,41 @@ class Approve(
             },
             { throwable ->
                 throwable.printStackTrace()
-                logger.error("Group.error")
+                logger.error("Approve.error")
                 botProvider.sendErrorMessage(throwable)
             },
             {
-                logger.error("Group.complete")
+                logger.error("Approve.complete")
+            }
+        )
+    }
+
+    private fun subscribeFeedback() {
+        watershedProvider.feedbackObservable.subscribe(
+            { request ->
+                try {
+                    val recordMsg = msgFactory.makeFeedbackMsg(approveGroupChatId,request.first)
+                    botProvider.send(recordMsg)
+                    val feedbackMsg = SendMessage(approveGroupChatId,"反馈：\n${request.second}")
+                    botProvider.send(feedbackMsg)
+                } catch (e: Throwable) {
+                    botProvider.sendErrorMessage(e)
+                    e.printStackTrace()
+                }
+            },
+            { throwable ->
+                throwable.printStackTrace()
+                logger.error("Approve.error")
+                botProvider.sendErrorMessage(throwable)
+            },
+            {
+                logger.error("Approve.complete")
             }
         )
     }
 
     private fun subscribeSubmitEnroll() {
-        elasticsearch.submitEnrollObservable.subscribe(
+        enrollElastic.submitEnrollObservable.subscribe(
             { enrollId ->
                 val msg = msgFactory.makeApproveMsg(approveGroupChatId, enrollId)
                 botProvider.send(msg)
@@ -86,13 +116,34 @@ class Approve(
         )
     }
 
+    private fun subscribeDeleteRecord() {
+        recordElastic.deleteRecordObservable.subscribe(
+            { next ->
+                try {
+                    val msg = msgFactory.makeRemoveRecordReplyMsg(approveGroupChatId, next.second.nick(), next.first.title)
+                    botProvider.send(msg)
+                } catch (e: Throwable) {
+                    botProvider.sendErrorMessage(e)
+                    e.printStackTrace()
+                }
+            },
+            { throwable ->
+                throwable.printStackTrace()
+                logger.error("Approve.error")
+                botProvider.sendErrorMessage(throwable)
+            },
+            {
+                logger.error("Approve.complete")
+            }
+        )
+    }
+
     private fun executeByCommand(request: WatershedProvider.BotApproveRequest) {
         // 获取命令内容
         val cmd = request.update.message().text().replaceFirst("/", "").replace("@${botProvider.username}", "")
         // 回执
         val sendMessage = when (cmd) {
             "start", "enroll", "update", "setting", "help" -> msgFactory.makeReplyMsg(request.chatId, "disable")
-            // todo: 修改，移除等操作
             "list" -> msgFactory.makeReplyMsg(request.chatId, "disable")
             "mine" -> msgFactory.makeReplyMsg(request.chatId, "only-private")
             else -> msgFactory.makeReplyMsg(request.chatId, "can-not-understand")
@@ -114,8 +165,10 @@ class Approve(
             callbackData.startsWith("blacklist") -> {
                 blacklistExecute.executeByBlacklistButton(request)
             }
-            callbackData.startsWith("page") -> {
-
+            callbackData.startsWith("remove") -> {
+                val manager = request.update.callbackQuery().from()
+                val recordUUID = callbackData.replace("remove:", "")
+                recordElastic.deleteRecord(recordUUID, manager)
             }
         }
     }

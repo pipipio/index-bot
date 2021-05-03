@@ -31,7 +31,7 @@ class Telegram(
         val description: String?
     }
 
-    class TelegramChannel(
+    data class TelegramChannel(
         override val username: String,
         override val title: String,
         override val description: String?,

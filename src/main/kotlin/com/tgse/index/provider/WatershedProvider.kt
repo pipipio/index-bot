@@ -63,6 +63,8 @@ class WatershedProvider(
     private val logger = LoggerFactory.getLogger(Group::class.java)
     private val requestSubject = BehaviorSubject.create<BotRequest>()
     val requestObservable: Observable<BotRequest> = requestSubject.distinct()
+    val feedbackSubject = BehaviorSubject.create<Pair<String, String>>()
+    val feedbackObservable: Observable<Pair<String, String>> = feedbackSubject.distinct()
 
     init {
         subscribeUpdate()

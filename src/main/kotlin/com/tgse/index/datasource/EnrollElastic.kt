@@ -1,7 +1,6 @@
 package com.tgse.index.datasource
 
 import com.tgse.index.provider.ElasticsearchProvider
-import com.tgse.index.provider.WatershedProvider
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 import org.elasticsearch.action.delete.DeleteRequest
@@ -11,15 +10,25 @@ import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.springframework.stereotype.Component
-import java.lang.RuntimeException
 
 /**
  * 数据引擎
  */
 @Component
-class Elasticsearch(
+class EnrollElastic(
     private val elasticsearchProvider: ElasticsearchProvider
 ) {
+
+    init {
+        initializeEnroll()
+    }
+
+    private fun initializeEnroll() {
+        val exist = elasticsearchProvider.checkIndexExist(elasticsearchProvider.enrollIndexName)
+        if (exist) return
+        // if (exist) elasticsearchProvider.deleteIndex(elasticsearchProvider.enrollIndexName)
+        elasticsearchProvider.createIndex(elasticsearchProvider.enrollIndexName)
+    }
 
     data class Enroll(
         val uuid: String,
@@ -44,8 +53,8 @@ class Elasticsearch(
     private val submitEnrollSubject = BehaviorSubject.create<String>()
     val submitEnrollObservable: Observable<String> = submitEnrollSubject.distinct()
 
-    private val submitApproveSubject = BehaviorSubject.create<Pair<String,Boolean>>()
-    val submitApproveObservable: Observable<Pair<String,Boolean>> = submitApproveSubject.distinct()
+    private val submitApproveSubject = BehaviorSubject.create<Pair<String, Boolean>>()
+    val submitApproveObservable: Observable<Pair<String, Boolean>> = submitApproveSubject.distinct()
 
     fun addEnroll(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
@@ -94,7 +103,7 @@ class Elasticsearch(
         builder.field("description", enroll.description)
         builder.field("tags", tagsString)
         builder.field("classification", enroll.classification)
-        builder.field("code", enroll.username)
+        builder.field("username", enroll.username)
         builder.field("link", enroll.link)
         builder.field("members", enroll.members)
         builder.field("createTime", enroll.createTime)
@@ -123,7 +132,7 @@ class Elasticsearch(
             map["description"] as String?,
             tags,
             map["classification"] as String?,
-            map["code"] as String?,
+            map["username"] as String?,
             map["link"] as String?,
             when (map["members"]) {
                 is Int -> (map["members"] as Int).toLong()

@@ -41,6 +41,18 @@
       "type": "java.lang.String",
       "defaultValue": "7890",
       "description": "proxy port"
+    },
+    {
+      "name": "secretary.autoDeleteMsgCycle",
+      "type": "java.lang.Integer",
+      "defaultValue": "30",
+      "description": "autoDeleteMsgCycle"
+    },
+    {
+      "name": "secretary.list.size",
+      "type": "java.lang.Integer",
+      "defaultValue": "30",
+      "description": "secretary.list.size"
     }
   ]
 }

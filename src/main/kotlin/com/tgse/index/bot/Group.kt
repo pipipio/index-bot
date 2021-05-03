@@ -1,15 +1,12 @@
 package com.tgse.index.bot
 
-import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.AnswerCallbackQuery
 import com.pengrad.telegrambot.request.GetChatAdministrators
-import com.pengrad.telegrambot.request.SendChatAction
 import com.pengrad.telegrambot.request.SendMessage
-import com.pengrad.telegrambot.response.SendResponse
 import com.tgse.index.bot.execute.BlacklistExecute
 import com.tgse.index.datasource.Blacklist
-import com.tgse.index.datasource.Elasticsearch
+import com.tgse.index.datasource.EnrollElastic
 import com.tgse.index.datasource.Telegram
 import com.tgse.index.factory.MsgFactory
 import com.tgse.index.nick
@@ -17,7 +14,6 @@ import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import com.tgse.index.provider.WatershedProvider.BotGroupRequest
 import org.slf4j.LoggerFactory
-import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
 import java.lang.RuntimeException
 import java.util.*
@@ -30,7 +26,7 @@ class Group(
     private val blacklist: Blacklist,
     private val blacklistExecute: BlacklistExecute,
     private val msgFactory: MsgFactory,
-    private val elasticsearch: Elasticsearch,
+    private val enrollElastic: EnrollElastic,
 ) {
 
     private val logger = LoggerFactory.getLogger(Group::class.java)
@@ -131,7 +127,7 @@ class Group(
             return null
         }
         // 入库
-        val enroll = Elasticsearch.Enroll(
+        val enroll = EnrollElastic.Enroll(
             UUID.randomUUID().toString(),
             Telegram.TelegramModType.Group,
             telegramGroup.chatId,
@@ -146,7 +142,7 @@ class Group(
             user.id().toLong(),
             user.nick()
         )
-        val createEnroll = elasticsearch.addEnroll(enroll)
+        val createEnroll = enrollElastic.addEnroll(enroll)
         if (!createEnroll) throw RuntimeException("群组信息存储失败")
         // 回执
         val sendMessage = msgFactory.makeEnrollMsg(user.id().toLong(), enroll.uuid)
