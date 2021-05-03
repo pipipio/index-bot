@@ -1,5 +1,6 @@
 package com.tgse.index.datasource
 
+import com.pengrad.telegrambot.model.User
 import com.tgse.index.provider.ElasticsearchProvider
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
@@ -52,11 +53,11 @@ class EnrollElastic(
         val createUserNick: String
     )
 
-    private val submitEnrollSubject = BehaviorSubject.create<String>()
-    val submitEnrollObservable: Observable<String> = submitEnrollSubject.distinct()
+    private val submitEnrollSubject = BehaviorSubject.create<Enroll>()
+    val submitEnrollObservable: Observable<Enroll> = submitEnrollSubject.distinct()
 
-    private val submitApproveSubject = BehaviorSubject.create<Pair<String, Boolean>>()
-    val submitApproveObservable: Observable<Pair<String, Boolean>> = submitApproveSubject.distinct()
+    private val submitApproveSubject = BehaviorSubject.create<Triple<Enroll, User, Boolean>>()
+    val submitApproveObservable: Observable<Triple<Enroll, User, Boolean>> = submitApproveSubject.distinct()
 
     fun addEnroll(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
@@ -73,12 +74,14 @@ class EnrollElastic(
 
     fun submitEnroll(uuid: String) {
         val enroll = getEnroll(uuid)!!
-        submitEnrollSubject.onNext(enroll.uuid)
+        submitEnrollSubject.onNext(enroll)
     }
 
-    fun approveEnroll(uuid: String, isPassed: Boolean) {
-        val pair = Pair(uuid, isPassed)
-        submitApproveSubject.onNext(pair)
+    fun approveEnroll(uuid: String, manager: User, isPassed: Boolean) {
+        val enroll = getEnroll(uuid)!!
+        val triple = Triple(enroll, manager, isPassed)
+        submitApproveSubject.onNext(triple)
+        deleteEnroll(uuid)
     }
 
     fun deleteEnroll(uuid: String) {

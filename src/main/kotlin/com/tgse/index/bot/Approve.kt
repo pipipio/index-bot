@@ -31,7 +31,9 @@ class Approve(
     private val awaitStatus: AwaitStatus,
     private val msgFactory: MsgFactory,
     @Value("\${group.approve.id}")
-    private val approveGroupChatId: Long
+    private val approveGroupChatId: Long,
+    @Value("\${secretary.autoDeleteMsgCycle}")
+    private val autoDeleteMsgCycle: Long
 ) {
     private val logger = LoggerFactory.getLogger(Approve::class.java)
 
@@ -39,6 +41,7 @@ class Approve(
         subscribeUpdate()
         subscribeFeedback()
         subscribeSubmitEnroll()
+        subscribeApproveEnroll()
         subscribeDeleteRecord()
     }
 
@@ -83,9 +86,10 @@ class Approve(
         watershedProvider.feedbackObservable.subscribe(
             { request ->
                 try {
-                    val recordMsg = msgFactory.makeFeedbackMsg(approveGroupChatId,request.first)
+                    val record = recordElastic.getRecord(request.first)!!
+                    val recordMsg = msgFactory.makeFeedbackMsg(approveGroupChatId, record)
                     botProvider.send(recordMsg)
-                    val feedbackMsg = SendMessage(approveGroupChatId,"反馈：\n${request.second}")
+                    val feedbackMsg = SendMessage(approveGroupChatId, "反馈：\n${request.second}")
                     botProvider.send(feedbackMsg)
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
@@ -105,8 +109,8 @@ class Approve(
 
     private fun subscribeSubmitEnroll() {
         enrollElastic.submitEnrollObservable.subscribe(
-            { enrollId ->
-                val msg = msgFactory.makeApproveMsg(approveGroupChatId, enrollId)
+            { enroll ->
+                val msg = msgFactory.makeApproveMsg(approveGroupChatId, enroll)
                 botProvider.send(msg)
             },
             { throwable ->
@@ -116,6 +120,26 @@ class Approve(
             },
             {
                 logger.error("subscribeSubmitEnroll.complete")
+            }
+        )
+    }
+
+    private fun subscribeApproveEnroll() {
+        enrollElastic.submitApproveObservable.subscribe(
+            { (enroll, manager, isPassed) ->
+                val msg = msgFactory.makeApproveResultMsg(approveGroupChatId, enroll, manager, isPassed)
+                val msgResponse = botProvider.send(msg)
+                if (isPassed) return@subscribe
+                val editMsg = msgFactory.makeClearMarkupMsg(approveGroupChatId, msgResponse.message().messageId())
+                botProvider.sendDelay(editMsg, autoDeleteMsgCycle * 1000)
+            },
+            { throwable ->
+                throwable.printStackTrace()
+                logger.error("subscribeApproveEnroll.error")
+                botProvider.sendErrorMessage(throwable)
+            },
+            {
+                logger.error("subscribeApproveEnroll.complete")
             }
         )
     }

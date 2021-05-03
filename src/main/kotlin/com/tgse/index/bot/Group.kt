@@ -145,7 +145,7 @@ class Group(
         val createEnroll = enrollElastic.addEnroll(enroll)
         if (!createEnroll) throw RuntimeException("群组信息存储失败")
         // 回执
-        val sendMessage = msgFactory.makeEnrollMsg(user.id().toLong(), enroll.uuid)
+        val sendMessage = msgFactory.makeEnrollMsg(user.id().toLong(), enroll)
         botProvider.send(sendMessage)
         return msgFactory.makeReplyMsg(request.chatId, "pls-check-private")
     }

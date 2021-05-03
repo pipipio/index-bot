@@ -17,49 +17,42 @@ import org.springframework.stereotype.Component
 class MsgFactory(
     private val reply: Reply,
     private val type: Type,
-    private val enrollElastic: EnrollElastic,
-    private val recordElastic: RecordElastic,
     private val botProvider: BotProvider
 ) {
 
-    fun makeEnrollMsg(chatId: Long, enrollId: String): SendMessage {
-        val enroll = enrollElastic.getEnroll(enrollId)!!
+    fun makeEnrollMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
         val detail = makeRecordDetail(enroll)
-        val keyboard = makeEnrollKeyboardMarkup(enrollId)
+        val keyboard = makeEnrollKeyboardMarkup(enroll.uuid)
         return SendMessage(chatId, detail)
             .parseMode(ParseMode.HTML)
             .disableWebPagePreview(true)
             .replyMarkup(keyboard)
     }
 
-    fun makeEnrollChangeClassificationMsg(chatId: Long, enrollId: String): SendMessage {
-        val enroll = enrollElastic.getEnroll(enrollId)!!
+    fun makeEnrollChangeClassificationMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
         val detail = makeRecordDetail(enroll)
-        val keyboard = makeInlineKeyboardMarkup(enrollId)
+        val keyboard = makeInlineKeyboardMarkup(enroll.uuid)
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeApproveMsg(chatId: Long, enrollId: String): SendMessage {
-        val enroll = enrollElastic.getEnroll(enrollId)!!
+    fun makeApproveMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
         val detail = makeApproveRecordDetail(enroll)
-        val keyboard = makeApproveKeyboardMarkup(enrollId)
+        val keyboard = makeApproveKeyboardMarkup(enroll.uuid)
         return SendMessage(chatId, detail)
             .replyMarkup(keyboard)
             .parseMode(ParseMode.HTML)
             .disableWebPagePreview(true)
     }
 
-    fun makeApproveChangeClassificationMsg(chatId: Long, enrollId: String): SendMessage {
-        val enroll = enrollElastic.getEnroll(enrollId)!!
+    fun makeApproveChangeClassificationMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
         val detail = makeApproveRecordDetail(enroll)
-        val keyboard = makeInlineKeyboardMarkup(enrollId)
+        val keyboard = makeInlineKeyboardMarkup(enroll.uuid)
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeApproveResultMsg(chatId: Long, enrollId: String, manager: User, isPassed: Boolean): SendMessage {
-        val enroll = enrollElastic.getEnroll(enrollId)!!
+    fun makeApproveResultMsg(chatId: Long, enroll: EnrollElastic.Enroll, manager: User, isPassed: Boolean): SendMessage {
         val detail = makeApproveResultDetail(enroll, manager, isPassed)
         val keyboard = makeJoinBlacklistKeyboardMarkup(enroll)
         val msg = SendMessage(chatId, detail)
@@ -67,8 +60,7 @@ class MsgFactory(
         else msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeApproveResultMsg(chatId: Long, enrollId: String, isPassed: Boolean): SendMessage {
-        val enroll = enrollElastic.getEnroll(enrollId)!!
+    fun makeApproveResultMsg(chatId: Long, enroll: EnrollElastic.Enroll, isPassed: Boolean): SendMessage {
         val detail = makeApproveResultDetail(enroll, isPassed)
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true)
@@ -80,17 +72,15 @@ class MsgFactory(
         return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeRecordMsg(chatId: Long, recordUUID: String): SendMessage {
-        val record = recordElastic.getRecord(recordUUID)!!
+    fun makeRecordMsg(chatId: Long,  record: RecordElastic.Record): SendMessage {
         val detail = makeRecordDetail(record)
-        val keyboard = makeFeedbackKeyboardMarkup(recordUUID)
+        val keyboard = makeFeedbackKeyboardMarkup(record.uuid)
         return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeFeedbackMsg(chatId: Long, recordUUID: String): SendMessage {
-        val record = recordElastic.getRecord(recordUUID)!!
+    fun makeFeedbackMsg(chatId: Long,  record: RecordElastic.Record): SendMessage {
         val detail = makeRecordDetail(record)
-        val keyboard = makeManageKeyboardMarkup(recordUUID)
+        val keyboard = makeManageKeyboardMarkup(record.uuid)
         return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 

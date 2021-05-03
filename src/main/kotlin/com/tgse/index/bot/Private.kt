@@ -27,6 +27,7 @@ class Private(
     private val msgFactory: MsgFactory,
     private val listMsgFactory: ListMsgFactory,
     private val enrollElastic: EnrollElastic,
+    private val recordElastic: RecordElastic,
     private val userElastic: UserElastic,
     private val blacklist: Blacklist,
     private val telegram: Telegram,
@@ -87,11 +88,9 @@ class Private(
 
     private fun subscribeApprove() {
         enrollElastic.submitApproveObservable.subscribe(
-            { next ->
+            { (enroll, manager, isPassed) ->
                 try {
-                    val (enrollUUID, isPassed) = next
-                    val enroll = enrollElastic.getEnroll(enrollUUID)!!
-                    val msg = msgFactory.makeApproveResultMsg(enroll.createUser, enroll.uuid, isPassed)
+                    val msg = msgFactory.makeApproveResultMsg(enroll.createUser, enroll, isPassed)
                     botProvider.send(msg)
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
@@ -157,7 +156,7 @@ class Private(
                 )
                 val createEnroll = enrollElastic.addEnroll(enroll)
                 if (!createEnroll) return
-                msgFactory.makeEnrollMsg(request.chatId, enroll.uuid)
+                msgFactory.makeEnrollMsg(request.chatId, enroll)
             }
             is Telegram.TelegramBot -> {
                 val enroll = EnrollElastic.Enroll(
@@ -177,7 +176,7 @@ class Private(
                 )
                 val createEnroll = enrollElastic.addEnroll(enroll)
                 if (!createEnroll) return
-                msgFactory.makeEnrollMsg(request.chatId, enroll.uuid)
+                msgFactory.makeEnrollMsg(request.chatId, enroll)
             }
             else -> msgFactory.makeReplyMsg(request.chatId, "nothing")
         }
@@ -207,7 +206,8 @@ class Private(
 
     private fun executeBySuperCommand(request: BotPrivateRequest): SendMessage {
         val recordUUID = request.update.message().text().replaceFirst("/start ", "")
-        return msgFactory.makeRecordMsg(request.chatId, recordUUID)
+        val record = recordElastic.getRecord(recordUUID)!!
+        return msgFactory.makeRecordMsg(request.chatId, record)
     }
 
     private fun executeByButton(request: BotPrivateRequest) {
@@ -240,7 +240,7 @@ class Private(
             statusCallbackData.startsWith("feedback:") -> {
                 val recordUUID = statusCallbackData.replace("feedback:", "")
                 val content = request.update.message().text()
-                val feedback = Pair(recordUUID,content)
+                val feedback = Pair(recordUUID, content)
                 watershedProvider.feedbackSubject.onNext(feedback)
                 // 清除状态
                 awaitStatus.clearAwaitStatus(request.chatId!!)

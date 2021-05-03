@@ -19,9 +19,7 @@ class RecordExecute(
     private val msgFactory: MsgFactory,
     private val enrollElastic: EnrollElastic,
     private val recordElastic: RecordElastic,
-    private val awaitStatus: AwaitStatus,
-    @Value("\${secretary.autoDeleteMsgCycle}")
-    private val autoDeleteMsgCycle: Long
+    private val awaitStatus: AwaitStatus
 ) {
     enum class Type {
         Enroll,
@@ -33,20 +31,19 @@ class RecordExecute(
         val callbackDataVal =
             callbackData.replace("enroll:", "").replace("approve:", "").replace("classification:", "").split("&")
         val field = callbackDataVal[0]
-        val enrollUUID = callbackDataVal[1]
+        val enroll = enrollElastic.getEnroll(callbackDataVal[1])!!
         when {
             // 通过按钮修改收录申请信息
             callbackData.startsWith("classification:") -> {
                 // 修改数据
-                val enroll = enrollElastic.getEnroll(enrollUUID)!!
                 val newEnroll = enroll.copy(classification = field)
                 enrollElastic.updateEnroll(newEnroll)
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 // 回执新消息
                 val msg = when (type) {
-                    Type.Enroll -> msgFactory.makeEnrollMsg(request.chatId!!, enrollUUID)
-                    Type.Approve -> msgFactory.makeApproveMsg(request.chatId!!, enrollUUID)
+                    Type.Enroll -> msgFactory.makeEnrollMsg(request.chatId!!, newEnroll)
+                    Type.Approve -> msgFactory.makeApproveMsg(request.chatId!!, newEnroll)
                 }
                 botProvider.send(msg)
             }
@@ -62,22 +59,21 @@ class RecordExecute(
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 // 回执新消息
                 val msg = when (type) {
-                    Type.Enroll -> msgFactory.makeEnrollChangeClassificationMsg(request.chatId!!, enrollUUID)
-                    Type.Approve -> msgFactory.makeApproveChangeClassificationMsg(request.chatId!!, enrollUUID)
+                    Type.Enroll -> msgFactory.makeEnrollChangeClassificationMsg(request.chatId!!, enroll)
+                    Type.Approve -> msgFactory.makeApproveChangeClassificationMsg(request.chatId!!, enroll)
                 }
                 botProvider.send(msg)
             }
             // 提交
             field == "submit" -> {
                 // 提交之前必须选择分类
-                val enroll = enrollElastic.getEnroll(enrollUUID)!!
                 if (enroll.classification == null) {
                     val msg = msgFactory.makeReplyMsg(request.chatId!!, "enroll-submit-verify-classification")
                     botProvider.send(msg)
                     return
                 }
                 // 提交信息
-                enrollElastic.submitEnroll(enrollUUID)
+                enrollElastic.submitEnroll(enroll.uuid)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
                 val editMsg = msgFactory.makeClearMarkupMsg(request.chatId!!, request.messageId!!)
                 botProvider.send(editMsg)
@@ -86,7 +82,7 @@ class RecordExecute(
             }
             // 取消
             field == "cancel" -> {
-                enrollElastic.deleteEnroll(enrollUUID)
+                enrollElastic.deleteEnroll(enroll.uuid)
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
                 val msg = msgFactory.makeReplyMsg(request.chatId!!, "cancel")
@@ -94,14 +90,7 @@ class RecordExecute(
             }
             // 通过
             field == "pass" -> {
-                val manger = request.update.callbackQuery().from()
-                botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
-                awaitStatus.clearAwaitStatus(request.chatId!!)
-                val msg = msgFactory.makeApproveResultMsg(request.chatId!!, enrollUUID, manger, true)
-                botProvider.send(msg)
-                enrollElastic.approveEnroll(enrollUUID, true)
                 // record
-                val enroll = enrollElastic.getEnroll(enrollUUID)!!
                 val record = RecordElastic.Record(
                     UUID.randomUUID().toString(),
                     null,
@@ -119,17 +108,18 @@ class RecordExecute(
                     Date().time
                 )
                 bulletin.publish(record)
+                // 回执
+                botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
+                awaitStatus.clearAwaitStatus(request.chatId!!)
+                val manager = request.update.callbackQuery().from()
+                enrollElastic.approveEnroll(enroll.uuid, manager, true)
             }
             // 不通过
             field == "fail" -> {
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 awaitStatus.clearAwaitStatus(request.chatId!!)
-                val checker = request.update.callbackQuery().from()
-                val msg = msgFactory.makeApproveResultMsg(request.chatId!!, enrollUUID, checker, false)
-                val msgResponse = botProvider.send(msg)
-                val editMsg = msgFactory.makeClearMarkupMsg(request.chatId!!, msgResponse.message().messageId())
-                botProvider.sendDelay(editMsg, autoDeleteMsgCycle * 1000)
-                enrollElastic.approveEnroll(enrollUUID, false)
+                val manager = request.update.callbackQuery().from()
+                enrollElastic.approveEnroll(enroll.uuid, manager, false)
             }
         }
     }
@@ -142,15 +132,13 @@ class RecordExecute(
         val msgContent = request.update.message().text()
         try {
             val enroll = enrollElastic.getEnroll(uuid)!!
-            when (field) {
+            val newEnroll = when (field) {
                 "title" -> {
                     if (msgContent.length > 26) throw MismatchException("标题太长，修改失败")
-                    val newEnroll = enroll.copy(title = msgContent)
-                    enrollElastic.updateEnroll(newEnroll)
+                    enroll.copy(title = msgContent)
                 }
                 "about" -> {
-                    val newEnroll = enroll.copy(description = msgContent)
-                    enrollElastic.updateEnroll(newEnroll)
+                    enroll.copy(description = msgContent)
                 }
                 "tags" -> {
                     val tags = mutableListOf<String>()
@@ -159,17 +147,17 @@ class RecordExecute(
                         if (!tags.contains(tag))
                             tags.add(tag)
                     }
-                    if (tags.size < 1) throw MismatchException("格式有误，修改失败")
-                    val newEnroll = enroll.copy(tags = tags)
-                    enrollElastic.updateEnroll(newEnroll)
+                    enroll.copy(tags = tags)
                 }
+                else -> throw RuntimeException("error request")
             }
+            enrollElastic.updateEnroll(newEnroll)
             // 清除状态
             awaitStatus.applyAwaitStatus(request.chatId!!)
             // 回执新消息
             val msg = when (type) {
-                Type.Enroll -> msgFactory.makeEnrollMsg(request.chatId!!, uuid)
-                Type.Approve -> msgFactory.makeApproveMsg(request.chatId!!, uuid)
+                Type.Enroll -> msgFactory.makeEnrollMsg(request.chatId!!, newEnroll)
+                Type.Approve -> msgFactory.makeApproveMsg(request.chatId!!, newEnroll)
             }
             botProvider.send(msg)
         } catch (e: Throwable) {
