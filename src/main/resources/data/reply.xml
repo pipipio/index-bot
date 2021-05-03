@@ -261,6 +261,18 @@
     </msg>
     <msg>
         <type>
+            statistics-daily
+        </type>
+        <content>
+            &lt;b&gt;每日汇总：&lt;/b&gt;
+            日增用户：{dailyIncreaseOfUser}
+            日活用户：{dailyActiveOfUser}
+            用户总数量：{countOfUser}
+            收录总数量：{countOfRecord}
+        </content>
+    </msg>
+    <msg>
+        <type>
             await
         </type>
         <content>

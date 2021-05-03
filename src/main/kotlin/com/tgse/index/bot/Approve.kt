@@ -8,13 +8,16 @@ import com.tgse.index.bot.execute.RecordExecute
 import com.tgse.index.datasource.AwaitStatus
 import com.tgse.index.datasource.EnrollElastic
 import com.tgse.index.datasource.RecordElastic
+import com.tgse.index.datasource.UserElastic
 import com.tgse.index.factory.MsgFactory
 import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import java.util.*
 
 @Service
 class Approve(
@@ -24,6 +27,7 @@ class Approve(
     private val watershedProvider: WatershedProvider,
     private val enrollElastic: EnrollElastic,
     private val recordElastic: RecordElastic,
+    private val userElastic: UserElastic,
     private val awaitStatus: AwaitStatus,
     private val msgFactory: MsgFactory,
     @Value("\${group.approve.id}")
@@ -173,5 +177,23 @@ class Approve(
         }
     }
 
+    //    @Scheduled(zone = "Asia/Shanghai", cron = "0 0 8 * * ?")
+//    @Scheduled(zone = "Asia/Shanghai", cron = "0 39 15 * * ?")
+//    private fun statisticsDaily() {
+//        val countOfUser = userElastic.count()
+//        val dailyIncreaseOfUser = userElastic.dailyIncrease()
+//        val dailyActiveOfUser = userElastic.dailyActive()
+////        val countOfUser = userElastic.count()
+//        val countOfRecord = recordElastic.count()
+//
+//        val msg = msgFactory.makeStatisticsDailyReplyMsg(
+//            approveGroupChatId,
+//            dailyIncreaseOfUser,
+//            dailyActiveOfUser,
+//            countOfUser,
+//            countOfRecord
+//        )
+//        botProvider.send(msg)
+//    }
 
 }

@@ -31,16 +31,18 @@ class RecordElastic(
     private val telegram: Telegram
 ) {
 
+    private val index = "record"
+
     init {
         initializeRecord()
     }
 
     private fun initializeRecord() {
-        val exist = elasticsearchProvider.checkIndexExist(elasticsearchProvider.recordIndexName)
+        val exist = elasticsearchProvider.checkIndexExist(index)
         if (exist) return
-        // if (exist) elasticsearchProvider.deleteIndex(elasticsearchProvider.recordIndexName)
+        // if (exist) elasticsearchProvider.deleteIndex(index)
 
-        val request = CreateIndexRequest(elasticsearchProvider.recordIndexName)
+        val request = CreateIndexRequest(index)
         request.settings(
             Settings.builder()
                 .put("index.number_of_shards", 3)
@@ -87,7 +89,7 @@ class RecordElastic(
                         "type": "long"
                     },
                     "createTime": {
-                        "type": "long"
+                        "type": "date"
                     },
                     "createUser": {
                         "type": "text"
@@ -129,7 +131,7 @@ class RecordElastic(
     val deleteRecordObservable: Observable<Pair<Record, User>> = deleteRecordSubject.distinct()
 
     fun searchRecords(keyword: String, from: Int, size: Int): Pair<MutableList<Record>, Long> {
-        val searchRequest = SearchRequest(elasticsearchProvider.recordIndexName)
+        val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         val queryBuilder = QueryBuilders.multiMatchQuery(keyword, "title", "tags", "classification")
         searchSourceBuilder.query(queryBuilder).from(from).size(size).sort("members", SortOrder.DESC)
@@ -147,7 +149,7 @@ class RecordElastic(
 
     fun addRecord(record: Record): Boolean {
         val builder = generateXContentFromRecord(record)
-        val indexRequest = IndexRequest(elasticsearchProvider.recordIndexName)
+        val indexRequest = IndexRequest(index)
         indexRequest.id(record.uuid).source(builder)
         val result = elasticsearchProvider.indexDocument(indexRequest)
         return result
@@ -155,19 +157,19 @@ class RecordElastic(
 
     fun updateRecord(record: Record): Boolean {
         val builder = generateXContentFromRecord(record)
-        val updateRequest = UpdateRequest(elasticsearchProvider.recordIndexName, record.uuid).doc(builder)
+        val updateRequest = UpdateRequest(index, record.uuid).doc(builder)
         return elasticsearchProvider.updateDocument(updateRequest)
     }
 
     fun deleteRecord(uuid: String, manager: User) {
         val record = getRecord(uuid)!!
-        val deleteRequest = DeleteRequest(elasticsearchProvider.recordIndexName, uuid)
+        val deleteRequest = DeleteRequest(index, uuid)
         elasticsearchProvider.deleteDocument(deleteRequest)
         deleteRecordSubject.onNext(Pair(record, manager))
     }
 
     fun getRecord(uuid: String): Record? {
-        val request = GetRequest(elasticsearchProvider.recordIndexName, uuid)
+        val request = GetRequest(index, uuid)
         val response = elasticsearchProvider.getDocument(request)
         if (!response.isExists) return null
         val record = generateRecordFromHashMap(uuid, response.sourceAsMap)
@@ -185,13 +187,17 @@ class RecordElastic(
     }
 
     private fun getRecord(queryBuilder: MatchQueryBuilder): Record? {
-        val searchRequest = SearchRequest(elasticsearchProvider.recordIndexName)
+        val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.query(queryBuilder)
         searchRequest.source(searchSourceBuilder)
         val response = elasticsearchProvider.search(searchRequest)
         return if (response.hits.totalHits!!.value < 1) null
         else generateRecordFromHashMap(response.hits.hits[0].id, response.hits.hits[0].sourceAsMap)
+    }
+
+    fun count(): Long {
+        return elasticsearchProvider.countOfDocument(index)
     }
 
     private fun realTimeRecord(record: Record): Record {

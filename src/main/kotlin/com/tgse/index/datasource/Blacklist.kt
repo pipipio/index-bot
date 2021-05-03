@@ -23,15 +23,17 @@ class Blacklist(
     private val elasticsearchProvider: ElasticsearchProvider
 ) {
 
+    private val index = "blacklist"
+
     init {
         initializeBlacklist()
     }
 
     private fun initializeBlacklist() {
-        val exist = elasticsearchProvider.checkIndexExist(elasticsearchProvider.blackListIndexName)
+        val exist = elasticsearchProvider.checkIndexExist(index)
         if (exist) return
-        // if (exist) elasticsearchProvider.deleteIndex(elasticsearchProvider.blackListIndexName)
-        elasticsearchProvider.createIndex(elasticsearchProvider.blackListIndexName)
+        // if (exist) elasticsearchProvider.deleteIndex(index)
+        elasticsearchProvider.createIndex(index)
     }
 
     enum class BlackType {
@@ -60,7 +62,7 @@ class Blacklist(
     }
 
     private fun getBlack(queryBuilder: MatchQueryBuilder): Black? {
-        val searchRequest = SearchRequest(elasticsearchProvider.blackListIndexName)
+        val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.query(queryBuilder)
         searchRequest.source(searchSourceBuilder)
@@ -71,19 +73,19 @@ class Blacklist(
 
     fun add(black: Black): Boolean {
         val builder = generateXContentFromBlack(black)
-        val indexRequest = IndexRequest(elasticsearchProvider.blackListIndexName)
+        val indexRequest = IndexRequest(index)
         indexRequest.id(black.uuid).source(builder)
         return elasticsearchProvider.indexDocument(indexRequest)
     }
 
     fun update(black: Black): Boolean {
         val builder = generateXContentFromBlack(black)
-        val updateRequest = UpdateRequest(elasticsearchProvider.blackListIndexName, black.uuid).doc(builder)
+        val updateRequest = UpdateRequest(index, black.uuid).doc(builder)
         return elasticsearchProvider.updateDocument(updateRequest)
     }
 
     fun delete(uuid: String) {
-        val deleteRequest = DeleteRequest(elasticsearchProvider.blackListIndexName, uuid)
+        val deleteRequest = DeleteRequest(index, uuid)
         elasticsearchProvider.deleteDocument(deleteRequest)
     }
 

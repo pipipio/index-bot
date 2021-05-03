@@ -13,16 +13,18 @@ import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.client.RequestOptions
 import org.elasticsearch.client.RestClient
 import org.elasticsearch.client.RestHighLevelClient
+import org.elasticsearch.client.core.CountRequest
 import org.elasticsearch.client.indices.CreateIndexRequest
 import org.elasticsearch.client.indices.GetIndexRequest
+import org.elasticsearch.index.query.QueryBuilder
+import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.springframework.stereotype.Component
+
 
 @Component
 class ElasticsearchProvider : AutoCloseable {
 
-    val blackListIndexName = "blacklist"
-    val enrollIndexName = "enroll"
-    val recordIndexName = "record"
     private val client = RestHighLevelClient(
         RestClient.builder(
             HttpHost("localhost", 9200, "http"),
@@ -102,6 +104,33 @@ class ElasticsearchProvider : AutoCloseable {
      */
     fun deleteDocument(request: DeleteRequest): DeleteResponse {
         return client.delete(request, RequestOptions.DEFAULT)
+    }
+
+    /**
+     * 文档数量
+     */
+    fun countOfDocument(index:String): Long {
+        // elasticsearch bug?
+        // can't run
+
+//        val countRequest = CountRequest(index)
+//        countRequest.query(QueryBuilders.matchAllQuery())
+
+        val countRequest = CountRequest()
+        val searchSourceBuilder = SearchSourceBuilder()
+        searchSourceBuilder.query(QueryBuilders.matchAllQuery())
+        countRequest.source(searchSourceBuilder)
+        val response = client.count(countRequest, RequestOptions.DEFAULT)
+        return response.count
+    }
+
+    fun countOfQuery(index: String, query: QueryBuilder): Long {
+        // elasticsearch bug?
+        // can't run
+        val countRequest = CountRequest(index)
+        countRequest.query(query)
+        val response = client.count(countRequest, RequestOptions.DEFAULT)
+        return response.count
     }
 
     fun search(searchRequest: SearchRequest): SearchResponse {

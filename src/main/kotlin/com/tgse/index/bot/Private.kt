@@ -27,6 +27,7 @@ class Private(
     private val msgFactory: MsgFactory,
     private val listMsgFactory: ListMsgFactory,
     private val enrollElastic: EnrollElastic,
+    private val userElastic: UserElastic,
     private val blacklist: Blacklist,
     private val telegram: Telegram,
     private val awaitStatus: AwaitStatus
@@ -64,6 +65,13 @@ class Private(
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
                     e.printStackTrace()
+                }finally {
+                    // 记录日活用户
+                    val user = when {
+                        request.update.message() != null -> request.update.message().from()
+                        else -> request.update.callbackQuery().message().from()
+                    }
+                    userElastic.footprint(user)
                 }
             },
             { throwable ->

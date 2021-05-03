@@ -19,15 +19,17 @@ class EnrollElastic(
     private val elasticsearchProvider: ElasticsearchProvider
 ) {
 
+    private val index = "enroll"
+
     init {
         initializeEnroll()
     }
 
     private fun initializeEnroll() {
-        val exist = elasticsearchProvider.checkIndexExist(elasticsearchProvider.enrollIndexName)
+        val exist = elasticsearchProvider.checkIndexExist(index)
         if (exist) return
-        // if (exist) elasticsearchProvider.deleteIndex(elasticsearchProvider.enrollIndexName)
-        elasticsearchProvider.createIndex(elasticsearchProvider.enrollIndexName)
+        // if (exist) elasticsearchProvider.deleteIndex(index)
+        elasticsearchProvider.createIndex(index)
     }
 
     data class Enroll(
@@ -58,14 +60,14 @@ class EnrollElastic(
 
     fun addEnroll(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
-        val indexRequest = IndexRequest(elasticsearchProvider.enrollIndexName)
+        val indexRequest = IndexRequest(index)
         indexRequest.id(enroll.uuid).source(builder)
         return elasticsearchProvider.indexDocument(indexRequest)
     }
 
     fun updateEnroll(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
-        val updateRequest = UpdateRequest(elasticsearchProvider.enrollIndexName, enroll.uuid).doc(builder)
+        val updateRequest = UpdateRequest(index, enroll.uuid).doc(builder)
         return elasticsearchProvider.updateDocument(updateRequest)
     }
 
@@ -80,12 +82,12 @@ class EnrollElastic(
     }
 
     fun deleteEnroll(uuid: String) {
-        val deleteRequest = DeleteRequest(elasticsearchProvider.enrollIndexName, uuid)
+        val deleteRequest = DeleteRequest(index, uuid)
         elasticsearchProvider.deleteDocument(deleteRequest)
     }
 
     fun getEnroll(uuid: String): Enroll? {
-        val request = GetRequest(elasticsearchProvider.enrollIndexName, uuid)
+        val request = GetRequest(index, uuid)
         val response = elasticsearchProvider.getDocument(request)
         if (!response.isExists) return null
         return generateEnrollFromHashMap(uuid, response.sourceAsMap)
