@@ -39,8 +39,7 @@ class RecordElastic(
 
     private fun initializeRecord() {
         val exist = elasticsearchProvider.checkIndexExist(index)
-//        if (exist) return
-         if (exist) elasticsearchProvider.deleteIndex(index)
+        if (exist) return
 
         val request = CreateIndexRequest(index)
         request.settings(
