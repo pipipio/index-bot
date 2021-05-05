@@ -56,7 +56,8 @@ class EnrollElastic(
         val createTime: Long,
         val createUser: Long,
         val createUserNick: String,
-        val status: Boolean
+        val isSubmit: Boolean,
+        val approve: Boolean?
     )
 
     private val submitEnrollSubject = BehaviorSubject.create<Enroll>()
@@ -70,8 +71,9 @@ class EnrollElastic(
             val searchRequest = SearchRequest(index)
             val searchSourceBuilder = SearchSourceBuilder()
             val creatorMatch = QueryBuilders.matchQuery("createUser", user.id())
-            val statusMatch = QueryBuilders.matchQuery("status", true)
-            val boolQuery = QueryBuilders.boolQuery().must(creatorMatch).must(statusMatch)
+            val statusMatch = QueryBuilders.matchQuery("isSubmit", true)
+            val approveMatch = QueryBuilders.matchQuery("approve", null)
+            val boolQuery = QueryBuilders.boolQuery().must(creatorMatch).must(statusMatch).must(approveMatch)
             searchSourceBuilder.query(boolQuery).from(from).size(size).sort("createTime", SortOrder.DESC)
             searchRequest.source(searchSourceBuilder)
             val response = elasticsearchProvider.search(searchRequest)
@@ -97,13 +99,14 @@ class EnrollElastic(
 
     fun updateEnroll(enroll: Enroll): Boolean {
         val sourceEnroll = getEnroll(enroll.uuid)!!
-        if (sourceEnroll.status != enroll.status) throw RuntimeException("此函数不允许修改状态")
+        if (sourceEnroll.isSubmit != enroll.isSubmit) throw RuntimeException("此函数不允许修改状态")
         return updateEnrollDetail(enroll)
     }
 
     fun submitEnroll(uuid: String) {
         val enroll = getEnroll(uuid)!!
-        val newEnroll = enroll.copy(status = true)
+        if (enroll.isSubmit) return
+        val newEnroll = enroll.copy(isSubmit = true)
         updateEnrollDetail(newEnroll)
         submitEnrollSubject.onNext(newEnroll)
     }
@@ -116,9 +119,10 @@ class EnrollElastic(
 
     fun approveEnroll(uuid: String, manager: User, isPassed: Boolean) {
         val enroll = getEnroll(uuid)!!
-        val triple = Triple(enroll, manager, isPassed)
+        val newEnroll = enroll.copy(approve = isPassed)
+        updateEnroll(newEnroll)
+        val triple = Triple(newEnroll, manager, isPassed)
         submitApproveSubject.onNext(triple)
-        deleteEnroll(uuid)
     }
 
     fun deleteEnroll(uuid: String) {
@@ -135,14 +139,14 @@ class EnrollElastic(
 
     fun getSubmittedEnrollByUsername(username: String): Enroll? {
         val usernameMatch = QueryBuilders.matchQuery("username",username)
-        val statusMatch = QueryBuilders.matchQuery("status",true)
+        val statusMatch = QueryBuilders.matchQuery("isSubmit",true)
         val queryBuilder = QueryBuilders.boolQuery().must(usernameMatch).must(statusMatch)
         return getSubmittedEnrollByQuery(queryBuilder)
     }
 
     fun getSubmittedEnrollByChatId(chatId: Long): Enroll? {
         val chatIdMatch = QueryBuilders.matchQuery("chatId", chatId)
-        val statusMatch = QueryBuilders.matchQuery("status",true)
+        val statusMatch = QueryBuilders.matchQuery("isSubmit",true)
         val queryBuilder = QueryBuilders.boolQuery().must(chatIdMatch).must(statusMatch)
         return getSubmittedEnrollByQuery(queryBuilder)
 
@@ -176,7 +180,8 @@ class EnrollElastic(
         builder.field("createTime", enroll.createTime)
         builder.field("createUser", enroll.createUser)
         builder.field("createUserName", enroll.createUserNick)
-        builder.field("status", enroll.status)
+        builder.field("isSubmit", enroll.isSubmit)
+        builder.field("approve", enroll.approve)
         builder.endObject()
         return builder
     }
@@ -210,7 +215,8 @@ class EnrollElastic(
             map["createTime"] as Long,
             map["createUser"].toString().toLong(),
             map["createUserName"] as String,
-            map["status"] as Boolean
+            map["isSubmit"] as Boolean,
+            map["approve"] as Boolean?
         )
     }
 

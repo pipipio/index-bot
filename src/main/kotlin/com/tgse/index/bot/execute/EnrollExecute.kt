@@ -50,7 +50,7 @@ class EnrollExecute(
             // 通过文字修改收录申请信息
             arrayOf("title", "about", "tags").contains(field) -> {
                 awaitStatus.setAwaitStatus(request.chatId!!, AwaitStatus.Await(request.messageId!!, callbackData))
-                val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "enroll-update-$field")
+                val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "update-$field")
                 botProvider.send(msg)
             }
             // 通过按钮修改收录申请信息

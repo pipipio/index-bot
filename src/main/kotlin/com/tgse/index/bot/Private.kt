@@ -168,7 +168,8 @@ class Private(
                     Date().time,
                     request.chatId,
                     request.update.message().from().nick(),
-                    false
+                    false,
+                    null
                 )
                 val createEnroll = enrollElastic.addEnroll(enroll)
                 if (!createEnroll) return
@@ -189,7 +190,8 @@ class Private(
                     Date().time,
                     request.chatId,
                     request.update.message().from().nick(),
-                    false
+                    false,
+                    null
                 )
                 val createEnroll = enrollElastic.addEnroll(enroll)
                 if (!createEnroll) return

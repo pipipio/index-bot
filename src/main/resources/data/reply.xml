@@ -185,7 +185,6 @@
         <content>
             /enroll@{bot.username} 收录此群组
             /update@{bot.username} 修改收录信息
-            /setting@{bot.username} 配置工作内容
         </content>
     </msg>
     <msg>

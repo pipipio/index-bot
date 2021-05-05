@@ -17,7 +17,7 @@ abstract class BaseMsgFactory(
         return SendMessage(
             chatId,
             reply.message[replyType]!!.replace("\\{bot.username\\}".toRegex(), botProvider.username)
-        )
+        ).disableWebPagePreview(false)
     }
 
     protected fun makeRecordDetail(record: RecordElastic.Record): String {

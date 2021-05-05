@@ -157,9 +157,7 @@ class RecordMsgFactory(
         return InlineKeyboardMarkup(
             arrayOf(
                 run {
-                    val callbackData =
-                        if (enroll.chatId != null) "blacklist:join&${Blacklist.BlackType.Record}&${enroll.uuid}"
-                        else "blacklist:join&${Blacklist.BlackType.Record}&${enroll.uuid}"
+                    val callbackData = "blacklist:join&${Blacklist.BlackType.Record}&${enroll.uuid}"
                     InlineKeyboardButton("将${type}加入黑名单").callbackData(callbackData)
                 }
             ),

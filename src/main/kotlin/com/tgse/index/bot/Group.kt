@@ -158,7 +158,8 @@ class Group(
             Date().time,
             user.id().toLong(),
             user.nick(),
-            false
+            false,
+            null
         )
         val createEnroll = enrollElastic.addEnroll(enroll)
         if (!createEnroll) throw RuntimeException("群组信息存储失败")
