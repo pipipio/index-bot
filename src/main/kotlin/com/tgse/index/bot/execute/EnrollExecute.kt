@@ -19,7 +19,6 @@ class EnrollExecute(
     private val normalMsgFactory: NormalMsgFactory,
     private val recordMsgFactory: RecordMsgFactory,
     private val enrollElastic: EnrollElastic,
-    private val recordElastic: RecordElastic,
     private val awaitStatus: AwaitStatus
 ) {
     enum class Type {
@@ -30,12 +29,12 @@ class EnrollExecute(
     fun executeByEnrollButton(type: Type, request: WatershedProvider.BotRequest) {
         val callbackData = request.update.callbackQuery().data()
         val callbackDataVal =
-            callbackData.replace("enroll:", "").replace("approve:", "").replace("enroll-classification:", "").split("&")
+            callbackData.replace("enroll:", "").replace("approve:", "").replace("enroll-class:", "").split("&")
         val field = callbackDataVal[0]
         val enroll = enrollElastic.getEnroll(callbackDataVal[1])!!
         when {
             // 通过按钮修改收录申请信息
-            callbackData.startsWith("classification:") -> {
+            callbackData.startsWith("enroll-class:") -> {
                 // 修改数据
                 val newEnroll = enroll.copy(classification = field)
                 enrollElastic.updateEnroll(newEnroll)
@@ -55,7 +54,7 @@ class EnrollExecute(
                 botProvider.send(msg)
             }
             // 通过按钮修改收录申请信息
-            field == "classification" -> {
+            field == "enroll-class" -> {
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 // 回执新消息

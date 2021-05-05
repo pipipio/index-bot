@@ -62,7 +62,7 @@ class Private(
                             if (callbackData.startsWith("approve") || callbackData.startsWith("enroll"))
                                 enrollExecute.executeByStatus(EnrollExecute.Type.Enroll, request)
                             else if (callbackData.startsWith("update"))
-                                enrollExecute.executeByStatus(EnrollExecute.Type.Enroll, request)
+                                recordExecute.executeByStatus(request)
                             else
                                 executeByStatus(EnrollExecute.Type.Enroll, request)
                         }
@@ -204,7 +204,7 @@ class Private(
 
     private fun executeByCommand(request: BotPrivateRequest) {
         // 获取命令内容
-        val cmd = request.update.message().text().replaceFirst("/", "")
+        val cmd = request.update.message().text().replaceFirst("/", "").replace("@${botProvider.username}", "")
         // 回执
         val sendMessage = when {
             cmd == "start" -> normalMsgFactory.makeReplyMsg(request.chatId, "start")
@@ -233,10 +233,10 @@ class Private(
 
         val callbackData = request.update.callbackQuery().data()
         when {
-            callbackData.startsWith("enroll") || callbackData.startsWith("enroll-classification") -> {
+            callbackData.startsWith("enroll") || callbackData.startsWith("enroll-class") -> {
                 enrollExecute.executeByEnrollButton(EnrollExecute.Type.Enroll, request)
             }
-            callbackData.startsWith("record") || callbackData.startsWith("record-classification") -> {
+            callbackData.startsWith("update") || callbackData.startsWith("record-class") -> {
                 recordExecute.executeByRecordButton(request)
             }
             callbackData.startsWith("page") -> {

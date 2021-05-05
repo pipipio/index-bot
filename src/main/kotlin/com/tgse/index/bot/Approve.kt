@@ -187,7 +187,7 @@ class Approve(
 
         val callbackData = request.update.callbackQuery().data()
         when {
-            callbackData.startsWith("approve") || callbackData.startsWith("enroll-classification") -> {
+            callbackData.startsWith("approve") || callbackData.startsWith("enroll-class") -> {
                 enrollExecute.executeByEnrollButton(EnrollExecute.Type.Approve, request)
             }
             callbackData.startsWith("blacklist") -> {

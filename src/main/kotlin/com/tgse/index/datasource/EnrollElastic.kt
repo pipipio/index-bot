@@ -33,8 +33,8 @@ class EnrollElastic(
 
     private fun initializeEnroll() {
         val exist = elasticsearchProvider.checkIndexExist(index)
-        if (exist) return
-//         if (exist) elasticsearchProvider.deleteIndex(index)
+//        if (exist) return
+         if (exist) elasticsearchProvider.deleteIndex(index)
         elasticsearchProvider.createIndex(index)
     }
 

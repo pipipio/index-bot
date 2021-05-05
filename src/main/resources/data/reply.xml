@@ -33,11 +33,27 @@
     </msg>
     <msg>
         <type>
+            group-not-enroll
+        </type>
+        <content>
+            群组未收录，请使用 /enroll@{bot.username} 命令收录。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            group-enroller-fail
+        </type>
+        <content>
+            仅提交者有权修改收录信息。
+        </content>
+    </msg>
+    <msg>
+        <type>
             enroll
         </type>
         <content>
             提交收录申请前，请先看&lt;a href="https://t.me/zh_secretary/2"&gt;收录规则&lt;/a&gt;。
-            &lt;b&gt;群组：&lt;/b&gt;请将机器人添加至群组中按照提示操作；
+            &lt;b&gt;群组：&lt;/b&gt;请将机器人添加至群组中，使用 /enroll@{bot.username} 命令收录；
             &lt;b&gt;频道、bot：&lt;/b&gt;请直接发送用户名，例：
 
             @se_talk
@@ -54,7 +70,27 @@
     </msg>
     <msg>
         <type>
-            enroll-update-title
+            update-link
+        </type>
+        <content>
+            请告诉我新的链接。
+            例：
+
+            @se_talk
+            https://t.me/se_talk
+        </content>
+    </msg>
+    <msg>
+        <type>
+            update-link-group
+        </type>
+        <content>
+            请在群组中执行 /update@{bot.username} 命令。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            update-title
         </type>
         <content>
             请告诉我新的标题。
@@ -62,7 +98,7 @@
     </msg>
     <msg>
         <type>
-            enroll-update-about
+            update-about
         </type>
         <content>
             请告诉我新的简介。
@@ -70,7 +106,7 @@
     </msg>
     <msg>
         <type>
-            enroll-update-tags
+            update-tags
         </type>
         <content>
             请告诉我新的标签，不要恶意使用标签哦。
@@ -239,7 +275,7 @@
             feedback-start
         </type>
         <content>
-            麻烦请告知反馈原由。
+            麻烦请告知反馈原由（文字）。
         </content>
     </msg>
     <msg>
@@ -252,10 +288,18 @@
     </msg>
     <msg>
         <type>
-            remove-record
+            remove-record-manager
         </type>
         <content>
             执行者：{manager}
+            {record}已被移除收录。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            remove-record-user
+        </type>
+        <content>
             {record}已被移除收录。
         </content>
     </msg>

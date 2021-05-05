@@ -44,14 +44,18 @@ class Group(
             { request ->
                 try {
                     if (request !is BotGroupRequest) return@subscribe
-                    // 输入状态
-                    botProvider.sendTyping(request.chatId)
                     // 回执
                     when {
-                        request.update.callbackQuery() != null ->
+                        request.update.callbackQuery() != null ->{
+                            // 输入状态
+                            botProvider.sendTyping(request.chatId)
                             executeByButton(request)
-                        request.update.message().text().startsWith("/") && request.update.message().text().endsWith("@${botProvider.username}") ->
+                        }
+                        request.update.message().text().startsWith("/") && request.update.message().text().endsWith("@${botProvider.username}") ->{
+                            // 输入状态
+                            botProvider.sendTyping(request.chatId)
                             executeByCommand(request)
+                        }
                         else ->
                             executeByText(request)
                     }
@@ -82,7 +86,7 @@ class Group(
         val sendMessage = when (cmd) {
             "start" -> normalMsgFactory.makeReplyMsg(request.chatId, "only-private")
             "enroll" -> executeByEnroll(request)
-//            "update" -> executeByUpdate(request)
+            "update" -> executeByUpdate(request)
             // todo: 开启后，可以在群组中查找群组……
             "list" -> normalMsgFactory.makeReplyMsg(request.chatId, "only-private")
             "mine" -> normalMsgFactory.makeReplyMsg(request.chatId, "only-private")
@@ -172,11 +176,17 @@ class Group(
         val user = request.update.message().from()
         if (!checkUserAuthority(request.chatId, user.id().toLong()))
             return normalMsgFactory.makeReplyMsg(request.chatId, "group-user-authority")
-        // 群组信息
-
+        // 校验权限
+        val record = recordElastic.getRecordByChatId(request.chatId)
+        if (record == null) return normalMsgFactory.makeReplyMsg(request.chatId, "group-not-enroll")
+        if (record.createUser != user.id().toLong()) return normalMsgFactory.makeReplyMsg(request.chatId, "group-enroller-fail")
+        // 更新
+        val telegramGroup = telegram.getTelegramGroupFromChat(request.chatId) ?: throw RuntimeException("群组信息获取失败")
+        val newRecord = record.copy(username = telegramGroup.username,link = telegramGroup.link)
+        recordElastic.updateRecord(newRecord)
         // 回执
-//        val sendMessage = msgFactory.makeEnrollMsg(user.id().toLong(), enroll)
-//        botProvider.send(sendMessage)
+        val msg = recordMsgFactory.makeRecordMsg(newRecord.createUser,newRecord)
+        botProvider.send(msg)
         return normalMsgFactory.makeReplyMsg(request.chatId, "pls-check-private")
     }
 

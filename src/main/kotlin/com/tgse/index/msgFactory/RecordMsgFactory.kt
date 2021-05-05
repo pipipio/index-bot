@@ -29,7 +29,7 @@ class RecordMsgFactory(
 
     fun makeEnrollChangeClassificationMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
         val detail = makeRecordDetail(enroll)
-        val keyboard = makeInlineKeyboardMarkup(enroll.uuid)
+        val keyboard = makeInlineKeyboardMarkup(enroll.uuid,"enroll-class")
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
@@ -45,14 +45,14 @@ class RecordMsgFactory(
 
     fun makeApproveChangeClassificationMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
         val detail = makeApproveRecordDetail(enroll)
-        val keyboard = makeInlineKeyboardMarkup(enroll.uuid)
+        val keyboard = makeInlineKeyboardMarkup(enroll.uuid,"enroll-class")
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
     fun makeRecordChangeClassificationMsg(chatId: Long, record: RecordElastic.Record): SendMessage {
         val detail = makeRecordDetail(record)
-        val keyboard = makeInlineKeyboardMarkup(record.uuid)
+        val keyboard = makeInlineKeyboardMarkup(record.uuid,"record-class")
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
@@ -112,7 +112,7 @@ class RecordMsgFactory(
                 "\n<b>审核结果</b>： $result\n"
     }
 
-    private fun makeInlineKeyboardMarkup(id: String): InlineKeyboardMarkup {
+    private fun makeInlineKeyboardMarkup(id: String, oper: String): InlineKeyboardMarkup {
         // 每行countInRow数量个按钮
         val countInRow = 3
         // 将多个类型按照countInRow拆分为多行
@@ -123,7 +123,7 @@ class RecordMsgFactory(
             endOfIndex = if (endOfIndex <= type.types.size) endOfIndex else type.types.size
             val row = type.types.copyOfRange(counter, endOfIndex)
             val buttons = row.map {
-                InlineKeyboardButton(it).callbackData("classification:$it&$id")
+                InlineKeyboardButton(it).callbackData("$oper:$it&$id")
             }.toTypedArray()
             buttonLines.add(buttons)
             counter += countInRow
@@ -180,7 +180,7 @@ class RecordMsgFactory(
             ),
             arrayOf(
                 InlineKeyboardButton("✍编辑标签").callbackData("enroll:tags&$id"),
-                InlineKeyboardButton("✍编辑分类").callbackData("enroll:enroll-classification&$id"),
+                InlineKeyboardButton("✍编辑分类").callbackData("enroll:enroll-class&$id"),
             ),
             arrayOf(
                 InlineKeyboardButton("✅提交").callbackData("enroll:submit&$id"),
@@ -197,7 +197,7 @@ class RecordMsgFactory(
             ),
             arrayOf(
                 InlineKeyboardButton("✍编辑标签").callbackData("approve:tags&$id"),
-                InlineKeyboardButton("✍编辑分类").callbackData("approve:enroll-classification&$id"),
+                InlineKeyboardButton("✍编辑分类").callbackData("approve:enroll-class&$id"),
             ),
             arrayOf(
                 InlineKeyboardButton("✅通过").callbackData("approve:pass&$id"),
@@ -217,7 +217,7 @@ class RecordMsgFactory(
             ),
             arrayOf(
                 InlineKeyboardButton("✍编辑标签").callbackData("update:tags&$id"),
-                InlineKeyboardButton("✍编辑分类").callbackData("update:record-classification&$id"),
+                InlineKeyboardButton("✍编辑分类").callbackData("update:record-class&$id"),
             ),
             arrayOf(
                 InlineKeyboardButton("移除收录").callbackData("update:remove&$id"),

@@ -66,8 +66,16 @@ class NormalMsgFactory(
     fun makeRemoveRecordReplyMsg(chatId: Long, manager: String, recordTitle: String): SendMessage {
         return SendMessage(
             chatId,
-            reply.message["remove-record"]!!
+            reply.message["remove-record-manager"]!!
                 .replace("\\{manager\\}".toRegex(), manager)
+                .replace("\\{record\\}".toRegex(), recordTitle)
+        )
+    }
+
+    fun makeRemoveRecordReplyMsg(chatId: Long, recordTitle: String): SendMessage {
+        return SendMessage(
+            chatId,
+            reply.message["remove-record-user"]!!
                 .replace("\\{record\\}".toRegex(), recordTitle)
         )
     }

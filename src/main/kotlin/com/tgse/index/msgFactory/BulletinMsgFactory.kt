@@ -23,7 +23,8 @@ class BulletinMsgFactory(
 
     fun makeBulletinMsg(chatId: Long, messageId: Int, record: RecordElastic.Record): EditMessageText {
         val detail = makeRecordDetail(record)
-        return EditMessageText(chatId, messageId, detail)
+        val keyboard = makePointKeyboardMarkup(record.uuid)
+        return EditMessageText(chatId, messageId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
     private fun makePointKeyboardMarkup(enrollUUID: String): InlineKeyboardMarkup {
