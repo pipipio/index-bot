@@ -273,6 +273,22 @@
     </msg>
     <msg>
         <type>
+            exist
+        </type>
+        <content>
+            已收录或已收到收录申请，无需重复提交。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            empty
+        </type>
+        <content>
+            暂无数据。
+        </content>
+    </msg>
+    <msg>
+        <type>
             await
         </type>
         <content>

@@ -1,24 +1,22 @@
-package com.tgse.index.factory
+package com.tgse.index.msgFactory
 
 import com.pengrad.telegrambot.model.User
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
 import com.pengrad.telegrambot.model.request.ParseMode
-import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup
 import com.pengrad.telegrambot.request.SendMessage
-import com.tgse.index.MismatchException
 import com.tgse.index.datasource.*
 import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import org.springframework.stereotype.Component
 
 @Component
-class MsgFactory(
-    private val reply: Reply,
+class RecordMsgFactory(
     private val type: Type,
-    private val botProvider: BotProvider
-) {
+    override val reply: Reply,
+    override val botProvider: BotProvider
+) : BaseMsgFactory(reply, botProvider) {
 
     fun makeEnrollMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
         val detail = makeRecordDetail(enroll)
@@ -52,7 +50,19 @@ class MsgFactory(
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeApproveResultMsg(chatId: Long, enroll: EnrollElastic.Enroll, manager: User, isPassed: Boolean): SendMessage {
+    fun makeRecordChangeClassificationMsg(chatId: Long, record: RecordElastic.Record): SendMessage {
+        val detail = makeRecordDetail(record)
+        val keyboard = makeInlineKeyboardMarkup(record.uuid)
+        val msg = SendMessage(chatId, detail)
+        return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+    }
+
+    fun makeApproveResultMsg(
+        chatId: Long,
+        enroll: EnrollElastic.Enroll,
+        manager: User,
+        isPassed: Boolean
+    ): SendMessage {
         val detail = makeApproveResultDetail(enroll, manager, isPassed)
         val keyboard = makeJoinBlacklistKeyboardMarkup(enroll)
         val msg = SendMessage(chatId, detail)
@@ -66,19 +76,15 @@ class MsgFactory(
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true)
     }
 
-    fun makeBulletinMsg(chatId: Long, record: RecordElastic.Record): SendMessage {
+    fun makeRecordMsg(chatId: Long, record: RecordElastic.Record): SendMessage {
         val detail = makeRecordDetail(record)
-        val keyboard = makePointKeyboardMarkup(record.uuid)
+        val keyboard =
+            if (chatId == record.createUser) makeUpdateKeyboardMarkup(record.uuid)
+            else makeFeedbackKeyboardMarkup(record.uuid)
         return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeRecordMsg(chatId: Long,  record: RecordElastic.Record): SendMessage {
-        val detail = makeRecordDetail(record)
-        val keyboard = makeFeedbackKeyboardMarkup(record.uuid)
-        return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
-    }
-
-    fun makeFeedbackMsg(chatId: Long,  record: RecordElastic.Record): SendMessage {
+    fun makeFeedbackMsg(chatId: Long, record: RecordElastic.Record): SendMessage {
         val detail = makeRecordDetail(record)
         val keyboard = makeManageKeyboardMarkup(record.uuid)
         return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
@@ -86,93 +92,6 @@ class MsgFactory(
 
     fun makeClearMarkupMsg(chatId: Long, messageId: Int): EditMessageReplyMarkup {
         return EditMessageReplyMarkup(chatId, messageId).replyMarkup(InlineKeyboardMarkup())
-    }
-
-    fun makeReplyMsg(chatId: Long, replyType: String): SendMessage {
-        return SendMessage(
-            chatId,
-            reply.message[replyType]!!.replace("\\{bot.username\\}".toRegex(), botProvider.username)
-        )
-    }
-
-    fun makeStatisticsDailyReplyMsg(
-        chatId: Long,
-        dailyIncreaseOfUser: Long,
-        dailyActiveOfUser: Long,
-        countOfUser: Long,
-        countOfRecord: Long
-    ): SendMessage {
-        return SendMessage(
-            chatId,
-            reply.message["statistics-daily"]!!
-                .replace("\\{dailyIncreaseOfUser\\}".toRegex(), dailyIncreaseOfUser.toString())
-                .replace("\\{dailyActiveOfUser\\}".toRegex(), dailyActiveOfUser.toString())
-                .replace("\\{countOfUser\\}".toRegex(), countOfUser.toString())
-                .replace("\\{countOfRecord\\}".toRegex(), countOfRecord.toString())
-        )
-    }
-
-    fun makeBlacklistJoinedReplyMsg(chatId: Long, replyType: String, manager: String, black: Blacklist.Black): SendMessage {
-        return SendMessage(
-            chatId,
-            reply.message[replyType]!!
-                .replace("\\{manager\\}".toRegex(), manager)
-                .replace("\\{black\\}".toRegex(), black.displayName)
-        )
-    }
-
-    fun makeBlacklistExistReplyMsg(chatId: Long, replyType: String, type: String): SendMessage {
-        return SendMessage(
-            chatId,
-            reply.message[replyType]!!.replace("\\{type\\}".toRegex(), type)
-        )
-    }
-
-    fun makeRemoveRecordReplyMsg(chatId: Long, manager: String, recordTitle: String): SendMessage {
-        return SendMessage(
-            chatId,
-            reply.message["remove-record"]!!
-                .replace("\\{manager\\}".toRegex(), manager)
-                .replace("\\{record\\}".toRegex(), recordTitle)
-        )
-    }
-
-    fun makeListReplyMsg(chatId: Long): SendMessage {
-        val keyboard = makeReplyKeyboardMarkup()
-        return SendMessage(chatId, "list").replyMarkup(keyboard)
-    }
-
-    fun makeExceptionMsg(chatId: Long, e: Exception): SendMessage {
-        return when (e) {
-            is MismatchException -> SendMessage(chatId, e.message)
-            else -> SendMessage(chatId, "未知错误")
-        }
-    }
-
-    private fun makeRecordDetail(record: RecordElastic.Record): String {
-        val link = if (record.username != null) "https://t.me/${record.username}" else record.link
-        val detailSB = StringBuffer()
-        detailSB.append("<b>标题</b>： <a href=\"$link\">${record.title}</a>\n")
-        detailSB.append("<b>标签</b>： ${if (record.tags == null) "暂无" else record.tags.joinToString(" ")}\n")
-        detailSB.append("<b>分类</b>： ${record.classification ?: "暂无"}\n")
-        detailSB.append("<b>简介</b>：\n")
-        val description = if (record.description == null) ""
-        else record.description.replace("<", "&lt;").replace(">", "&gt;") + "\n"
-        detailSB.append(description)
-        return detailSB.toString()
-    }
-
-    private fun makeRecordDetail(enroll: EnrollElastic.Enroll): String {
-        val link = if (enroll.username != null) "https://t.me/${enroll.username}" else enroll.link
-        val detailSB = StringBuffer()
-        detailSB.append("<b>标题</b>： <a href=\"$link\">${enroll.title}</a>\n")
-        detailSB.append("<b>标签</b>： ${if (enroll.tags == null) "暂无" else enroll.tags.joinToString(" ")}\n")
-        detailSB.append("<b>分类</b>： ${enroll.classification ?: "暂无"}\n")
-        detailSB.append("<b>简介</b>：\n")
-        val description = if (enroll.description == null) ""
-        else enroll.description.replace("<", "&lt;").replace(">", "&gt;") + "\n"
-        detailSB.append(description)
-        return detailSB.toString()
     }
 
     private fun makeApproveRecordDetail(enroll: EnrollElastic.Enroll): String {
@@ -193,27 +112,6 @@ class MsgFactory(
                 "\n<b>审核结果</b>： $result\n"
     }
 
-    private fun makeReplyKeyboardMarkup(): ReplyKeyboardMarkup {
-        // 每行countInRow数量个按钮
-        val countInRow = 3
-        // 将多个类型按照countInRow拆分为多行
-        var counter = 0
-        val rows = mutableListOf<Array<String>>()
-        while (counter < type.types.size) {
-            var endOfIndex = counter + countInRow
-            endOfIndex = if (endOfIndex <= type.types.size) endOfIndex else type.types.size
-            val row = type.types.copyOfRange(counter, endOfIndex)
-            counter += countInRow
-            rows.add(row)
-        }
-        // 制作键盘
-        val keyboard = ReplyKeyboardMarkup(*rows.toTypedArray())
-        keyboard.oneTimeKeyboard(false)
-        keyboard.resizeKeyboard(true)
-        keyboard.selective(true)
-        return keyboard
-    }
-
     private fun makeInlineKeyboardMarkup(id: String): InlineKeyboardMarkup {
         // 每行countInRow数量个按钮
         val countInRow = 3
@@ -231,14 +129,6 @@ class MsgFactory(
             counter += countInRow
         }
         return InlineKeyboardMarkup(*buttonLines.toTypedArray())
-    }
-
-    private fun makePointKeyboardMarkup(enrollUUID: String): InlineKeyboardMarkup {
-        return InlineKeyboardMarkup(
-            arrayOf(
-                    InlineKeyboardButton("查询").url("https://t.me/${botProvider.username}?start=$enrollUUID")
-            )
-        )
     }
 
     private fun makeFeedbackKeyboardMarkup(recordUUID: String): InlineKeyboardMarkup {
@@ -290,7 +180,7 @@ class MsgFactory(
             ),
             arrayOf(
                 InlineKeyboardButton("✍编辑标签").callbackData("enroll:tags&$id"),
-                InlineKeyboardButton("✍编辑分类").callbackData("enroll:classification&$id"),
+                InlineKeyboardButton("✍编辑分类").callbackData("enroll:enroll-classification&$id"),
             ),
             arrayOf(
                 InlineKeyboardButton("✅提交").callbackData("enroll:submit&$id"),
@@ -307,11 +197,30 @@ class MsgFactory(
             ),
             arrayOf(
                 InlineKeyboardButton("✍编辑标签").callbackData("approve:tags&$id"),
-                InlineKeyboardButton("✍编辑分类").callbackData("approve:classification&$id"),
+                InlineKeyboardButton("✍编辑分类").callbackData("approve:enroll-classification&$id"),
             ),
             arrayOf(
                 InlineKeyboardButton("✅通过").callbackData("approve:pass&$id"),
                 InlineKeyboardButton("❎不通过").callbackData("approve:fail&$id"),
+            )
+        )
+    }
+
+    private fun makeUpdateKeyboardMarkup(id: String): InlineKeyboardMarkup {
+        return InlineKeyboardMarkup(
+            arrayOf(
+                InlineKeyboardButton("✍更新链接").callbackData("update:link&$id"),
+            ),
+            arrayOf(
+                InlineKeyboardButton("✍编辑标题").callbackData("update:title&$id"),
+                InlineKeyboardButton("✍编辑简介").callbackData("update:about&$id"),
+            ),
+            arrayOf(
+                InlineKeyboardButton("✍编辑标签").callbackData("update:tags&$id"),
+                InlineKeyboardButton("✍编辑分类").callbackData("update:record-classification&$id"),
+            ),
+            arrayOf(
+                InlineKeyboardButton("移除收录").callbackData("update:remove&$id"),
             )
         )
     }

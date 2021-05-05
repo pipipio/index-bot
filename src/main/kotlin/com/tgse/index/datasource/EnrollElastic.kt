@@ -7,9 +7,14 @@ import io.reactivex.subjects.BehaviorSubject
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.index.IndexRequest
+import org.elasticsearch.action.search.SearchRequest
 import org.elasticsearch.action.update.UpdateRequest
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
+import org.elasticsearch.index.query.BoolQueryBuilder
+import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.search.builder.SearchSourceBuilder
+import org.elasticsearch.search.sort.SortOrder
 import org.springframework.stereotype.Component
 
 /**
@@ -29,7 +34,7 @@ class EnrollElastic(
     private fun initializeEnroll() {
         val exist = elasticsearchProvider.checkIndexExist(index)
         if (exist) return
-        // if (exist) elasticsearchProvider.deleteIndex(index)
+//         if (exist) elasticsearchProvider.deleteIndex(index)
         elasticsearchProvider.createIndex(index)
     }
 
@@ -50,7 +55,8 @@ class EnrollElastic(
         val members: Long?,
         val createTime: Long,
         val createUser: Long,
-        val createUserNick: String
+        val createUserNick: String,
+        val status: Boolean
     )
 
     private val submitEnrollSubject = BehaviorSubject.create<Enroll>()
@@ -58,6 +64,29 @@ class EnrollElastic(
 
     private val submitApproveSubject = BehaviorSubject.create<Triple<Enroll, User, Boolean>>()
     val submitApproveObservable: Observable<Triple<Enroll, User, Boolean>> = submitApproveSubject.distinct()
+
+    fun searchEnrolls(user: User, from: Int, size: Int): Pair<MutableList<Enroll>, Long> {
+        try{
+            val searchRequest = SearchRequest(index)
+            val searchSourceBuilder = SearchSourceBuilder()
+            val creatorMatch = QueryBuilders.matchQuery("createUser", user.id())
+            val statusMatch = QueryBuilders.matchQuery("status", true)
+            val boolQuery = QueryBuilders.boolQuery().must(creatorMatch).must(statusMatch)
+            searchSourceBuilder.query(boolQuery).from(from).size(size).sort("createTime", SortOrder.DESC)
+            searchRequest.source(searchSourceBuilder)
+            val response = elasticsearchProvider.search(searchRequest)
+
+            val enrolls = arrayListOf<Enroll>()
+            response.hits.hits.forEach {
+                val enroll = generateEnrollFromHashMap(it.id, it.sourceAsMap)
+                enrolls.add(enroll)
+            }
+            val totalCount = response.hits.totalHits?.value ?: 0L
+            return Pair(enrolls.toMutableList(), totalCount)
+        } catch (e: Throwable) {
+            return Pair(mutableListOf(), 0L)
+        }
+    }
 
     fun addEnroll(enroll: Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
@@ -67,14 +96,22 @@ class EnrollElastic(
     }
 
     fun updateEnroll(enroll: Enroll): Boolean {
-        val builder = generateXContentFromEnroll(enroll)
-        val updateRequest = UpdateRequest(index, enroll.uuid).doc(builder)
-        return elasticsearchProvider.updateDocument(updateRequest)
+        val sourceEnroll = getEnroll(enroll.uuid)!!
+        if (sourceEnroll.status != enroll.status) throw RuntimeException("此函数不允许修改状态")
+        return updateEnrollDetail(enroll)
     }
 
     fun submitEnroll(uuid: String) {
         val enroll = getEnroll(uuid)!!
-        submitEnrollSubject.onNext(enroll)
+        val newEnroll = enroll.copy(status = true)
+        updateEnrollDetail(newEnroll)
+        submitEnrollSubject.onNext(newEnroll)
+    }
+
+    private fun updateEnrollDetail(enroll: Enroll): Boolean {
+        val builder = generateXContentFromEnroll(enroll)
+        val updateRequest = UpdateRequest(index, enroll.uuid).doc(builder)
+        return elasticsearchProvider.updateDocument(updateRequest)
     }
 
     fun approveEnroll(uuid: String, manager: User, isPassed: Boolean) {
@@ -96,6 +133,31 @@ class EnrollElastic(
         return generateEnrollFromHashMap(uuid, response.sourceAsMap)
     }
 
+    fun getSubmittedEnrollByUsername(username: String): Enroll? {
+        val usernameMatch = QueryBuilders.matchQuery("username",username)
+        val statusMatch = QueryBuilders.matchQuery("status",true)
+        val queryBuilder = QueryBuilders.boolQuery().must(usernameMatch).must(statusMatch)
+        return getSubmittedEnrollByQuery(queryBuilder)
+    }
+
+    fun getSubmittedEnrollByChatId(chatId: Long): Enroll? {
+        val chatIdMatch = QueryBuilders.matchQuery("chatId", chatId)
+        val statusMatch = QueryBuilders.matchQuery("status",true)
+        val queryBuilder = QueryBuilders.boolQuery().must(chatIdMatch).must(statusMatch)
+        return getSubmittedEnrollByQuery(queryBuilder)
+
+    }
+
+    private fun getSubmittedEnrollByQuery(queryBuilder: BoolQueryBuilder): Enroll? {
+        val searchRequest = SearchRequest(index)
+        val searchSourceBuilder = SearchSourceBuilder()
+        searchSourceBuilder.query(queryBuilder)
+        searchRequest.source(searchSourceBuilder)
+        val response = elasticsearchProvider.search(searchRequest)
+        return if (response.hits.totalHits!!.value < 1) null
+        else generateEnrollFromHashMap(response.hits.hits[0].id, response.hits.hits[0].sourceAsMap)
+    }
+
     private fun generateXContentFromEnroll(enroll: Enroll): XContentBuilder {
         val tagsString =
             if (enroll.tags == null) null
@@ -114,6 +176,7 @@ class EnrollElastic(
         builder.field("createTime", enroll.createTime)
         builder.field("createUser", enroll.createUser)
         builder.field("createUserName", enroll.createUserNick)
+        builder.field("status", enroll.status)
         builder.endObject()
         return builder
     }
@@ -147,6 +210,7 @@ class EnrollElastic(
             map["createTime"] as Long,
             map["createUser"].toString().toLong(),
             map["createUserName"] as String,
+            map["status"] as Boolean
         )
     }
 

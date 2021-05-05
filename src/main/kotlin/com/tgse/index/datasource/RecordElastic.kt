@@ -126,10 +126,15 @@ class RecordElastic(
         val updateTime: Long,
     )
 
-    private val logger = LoggerFactory.getLogger(RecordElastic::class.java)
+    private val updateRecordSubject = BehaviorSubject.create<Record>()
+    val updateRecordObservable: Observable<Record> = updateRecordSubject.distinct()
+
     private val deleteRecordSubject = BehaviorSubject.create<Pair<Record, User>>()
     val deleteRecordObservable: Observable<Pair<Record, User>> = deleteRecordSubject.distinct()
 
+    /**
+     * 根据关键词查询
+     */
     fun searchRecords(keyword: String, from: Int, size: Int): Pair<MutableList<Record>, Long> {
         val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
@@ -147,18 +152,43 @@ class RecordElastic(
         return Pair(records.toMutableList(), totalCount)
     }
 
+    /**
+     * 根据提交者查询
+     */
+    fun searchRecords(user: User, from: Int, size: Int): Pair<MutableList<Record>, Long> {
+        try {
+            val searchRequest = SearchRequest(index)
+            val searchSourceBuilder = SearchSourceBuilder()
+            val queryBuilder = QueryBuilders.matchQuery("createUser", user.id())
+            searchSourceBuilder.query(queryBuilder).from(from).size(size).sort("createTime", SortOrder.DESC)
+            searchRequest.source(searchSourceBuilder)
+            val response = elasticsearchProvider.search(searchRequest)
+
+            val records = arrayListOf<Record>()
+            response.hits.hits.forEach {
+                val record = generateRecordFromHashMap(it.id, it.sourceAsMap)
+                records.add(record)
+            }
+            val totalCount = response.hits.totalHits?.value ?: 0L
+            return Pair(records.toMutableList(), totalCount)
+        } catch (e: Throwable) {
+            return Pair(mutableListOf(), 0L)
+        }
+    }
+
     fun addRecord(record: Record): Boolean {
         val builder = generateXContentFromRecord(record)
         val indexRequest = IndexRequest(index)
         indexRequest.id(record.uuid).source(builder)
-        val result = elasticsearchProvider.indexDocument(indexRequest)
-        return result
+        return elasticsearchProvider.indexDocument(indexRequest)
     }
 
-    fun updateRecord(record: Record): Boolean {
-        val builder = generateXContentFromRecord(record)
-        val updateRequest = UpdateRequest(index, record.uuid).doc(builder)
-        return elasticsearchProvider.updateDocument(updateRequest)
+    fun updateRecord(record: Record) {
+        val newRecord = record.copy(updateTime = Date().time)
+        val builder = generateXContentFromRecord(newRecord)
+        val updateRequest = UpdateRequest(index, newRecord.uuid).doc(builder)
+        elasticsearchProvider.updateDocument(updateRequest)
+        updateRecordSubject.onNext(newRecord)
     }
 
     fun deleteRecord(uuid: String, manager: User) {
@@ -201,25 +231,29 @@ class RecordElastic(
     }
 
     private fun realTimeRecord(record: Record): Record {
-        // 24小时后更新人数信息
-        val isOver24Hours = record.updateTime < Date().time - 24 * 60 * 60 * 1000
-        val isHasMembers = record.members != null
-        return if (isOver24Hours && isHasMembers) {
-            val telegramMod =
-                if (record.username != null) telegram.getTelegramModFromWeb(record.username)
-                else telegram.getTelegramGroupFromChat(record.chatId!!)
+        try {
+            // 24小时后更新人数信息
+            val isOver24Hours = record.updateTime < Date().time - 24 * 60 * 60 * 1000
+            val isHasMembers = record.members != null
+            return if (isOver24Hours && isHasMembers) {
+                val telegramMod =
+                    if (record.username != null) telegram.getTelegramModFromWeb(record.username)
+                    else telegram.getTelegramGroupFromChat(record.chatId!!)
 
-            val members = when (telegramMod) {
-                is Telegram.TelegramChannel -> telegramMod.members
-                is Telegram.TelegramGroup -> telegramMod.members
-                else -> 0L
+                val members = when (telegramMod) {
+                    is Telegram.TelegramChannel -> telegramMod.members
+                    is Telegram.TelegramGroup -> telegramMod.members
+                    else -> 0L
+                }
+
+                val newRecord = record.copy(members = members)
+                updateRecord(newRecord)
+                newRecord
+            } else {
+                record
             }
-
-            val newRecord = record.copy(members = members)
-            updateRecord(newRecord)
-            newRecord
-        } else {
-            record
+        } catch (e: Throwable) {
+            return record
         }
     }
 

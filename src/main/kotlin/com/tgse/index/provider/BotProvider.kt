@@ -58,10 +58,10 @@ class BotProvider(
             val setCommands = SetMyCommands(
                 BotCommand("start", "开 始"),
                 BotCommand("enroll", "申请收录"),
-//                BotCommand("update", "修改收录信息"),
+                BotCommand("update", "修改收录信息"),
                 BotCommand("list", "收录列表"),
-//                BotCommand("mine", "我提交的"),
-//                BotCommand("setting", "设 置"),
+                BotCommand("mine", "我提交的"),
+                // BotCommand("setting", "设 置"),
                 BotCommand("help", "帮 助"),
             )
             val setResponse = bot.execute(setCommands)

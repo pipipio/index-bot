@@ -4,24 +4,23 @@ import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.AnswerCallbackQuery
 import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.bot.execute.BlacklistExecute
-import com.tgse.index.bot.execute.RecordExecute
+import com.tgse.index.bot.execute.EnrollExecute
 import com.tgse.index.datasource.AwaitStatus
 import com.tgse.index.datasource.EnrollElastic
 import com.tgse.index.datasource.RecordElastic
 import com.tgse.index.datasource.UserElastic
-import com.tgse.index.factory.MsgFactory
+import com.tgse.index.msgFactory.NormalMsgFactory
+import com.tgse.index.msgFactory.RecordMsgFactory
 import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
-import java.util.*
 
 @Service
 class Approve(
-    private val recordExecute: RecordExecute,
+    private val enrollExecute: EnrollExecute,
     private val blacklistExecute: BlacklistExecute,
     private val botProvider: BotProvider,
     private val watershedProvider: WatershedProvider,
@@ -29,7 +28,8 @@ class Approve(
     private val recordElastic: RecordElastic,
     private val userElastic: UserElastic,
     private val awaitStatus: AwaitStatus,
-    private val msgFactory: MsgFactory,
+    private val normalMsgFactory: NormalMsgFactory,
+    private val recordMsgFactory: RecordMsgFactory,
     @Value("\${group.approve.id}")
     private val approveGroupChatId: Long,
     @Value("\${secretary.autoDeleteMsgCycle}")
@@ -58,7 +58,7 @@ class Approve(
                         }
                         awaitStatus.getAwaitStatus(request.chatId) != null -> {
                             botProvider.sendTyping(request.chatId)
-                            recordExecute.executeByStatus(RecordExecute.Type.Approve, request)
+                            enrollExecute.executeByStatus(EnrollExecute.Type.Approve, request)
                         }
                         request.update.message().text().startsWith("/") && request.update.message().text()
                             .endsWith("@${botProvider.username}") -> {
@@ -87,7 +87,7 @@ class Approve(
             { request ->
                 try {
                     val record = recordElastic.getRecord(request.first)!!
-                    val recordMsg = msgFactory.makeFeedbackMsg(approveGroupChatId, record)
+                    val recordMsg = recordMsgFactory.makeFeedbackMsg(approveGroupChatId, record)
                     botProvider.send(recordMsg)
                     val feedbackMsg = SendMessage(approveGroupChatId, "反馈：\n${request.second}")
                     botProvider.send(feedbackMsg)
@@ -110,7 +110,7 @@ class Approve(
     private fun subscribeSubmitEnroll() {
         enrollElastic.submitEnrollObservable.subscribe(
             { enroll ->
-                val msg = msgFactory.makeApproveMsg(approveGroupChatId, enroll)
+                val msg = recordMsgFactory.makeApproveMsg(approveGroupChatId, enroll)
                 botProvider.send(msg)
             },
             { throwable ->
@@ -127,10 +127,10 @@ class Approve(
     private fun subscribeApproveEnroll() {
         enrollElastic.submitApproveObservable.subscribe(
             { (enroll, manager, isPassed) ->
-                val msg = msgFactory.makeApproveResultMsg(approveGroupChatId, enroll, manager, isPassed)
+                val msg = recordMsgFactory.makeApproveResultMsg(approveGroupChatId, enroll, manager, isPassed)
                 val msgResponse = botProvider.send(msg)
                 if (isPassed) return@subscribe
-                val editMsg = msgFactory.makeClearMarkupMsg(approveGroupChatId, msgResponse.message().messageId())
+                val editMsg = normalMsgFactory.makeClearMarkupMsg(approveGroupChatId, msgResponse.message().messageId())
                 botProvider.sendDelay(editMsg, autoDeleteMsgCycle * 1000)
             },
             { throwable ->
@@ -148,7 +148,7 @@ class Approve(
         recordElastic.deleteRecordObservable.subscribe(
             { next ->
                 try {
-                    val msg = msgFactory.makeRemoveRecordReplyMsg(approveGroupChatId, next.second.nick(), next.first.title)
+                    val msg = normalMsgFactory.makeRemoveRecordReplyMsg(approveGroupChatId, next.second.nick(), next.first.title)
                     botProvider.send(msg)
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
@@ -171,10 +171,10 @@ class Approve(
         val cmd = request.update.message().text().replaceFirst("/", "").replace("@${botProvider.username}", "")
         // 回执
         val sendMessage = when (cmd) {
-            "start", "enroll", "update", "setting", "help" -> msgFactory.makeReplyMsg(request.chatId, "disable")
-            "list" -> msgFactory.makeReplyMsg(request.chatId, "disable")
-            "mine" -> msgFactory.makeReplyMsg(request.chatId, "only-private")
-            else -> msgFactory.makeReplyMsg(request.chatId, "can-not-understand")
+            "start", "enroll", "update", "setting", "help" -> normalMsgFactory.makeReplyMsg(request.chatId, "disable")
+            "list" -> normalMsgFactory.makeReplyMsg(request.chatId, "disable")
+            "mine" -> normalMsgFactory.makeReplyMsg(request.chatId, "only-private")
+            else -> normalMsgFactory.makeReplyMsg(request.chatId, "can-not-understand")
         }
         sendMessage.disableWebPagePreview(true)
         sendMessage.parseMode(ParseMode.HTML)
@@ -187,8 +187,8 @@ class Approve(
 
         val callbackData = request.update.callbackQuery().data()
         when {
-            callbackData.startsWith("approve") || callbackData.startsWith("classification") -> {
-                recordExecute.executeByEnrollButton(RecordExecute.Type.Approve, request)
+            callbackData.startsWith("approve") || callbackData.startsWith("enroll-classification") -> {
+                enrollExecute.executeByEnrollButton(EnrollExecute.Type.Approve, request)
             }
             callbackData.startsWith("blacklist") -> {
                 blacklistExecute.executeByBlacklistButton(request)
