@@ -84,12 +84,11 @@ class Approve(
 
     private fun subscribeFeedback() {
         watershedProvider.feedbackObservable.subscribe(
-            { request ->
+            { (record, user, content) ->
                 try {
-                    val record = recordElastic.getRecord(request.first)!!
                     val recordMsg = recordMsgFactory.makeFeedbackMsg(approveGroupChatId, record)
                     botProvider.send(recordMsg)
-                    val feedbackMsg = SendMessage(approveGroupChatId, "反馈：\n${request.second}")
+                    val feedbackMsg = SendMessage(approveGroupChatId, "用户：${user.nick()}\n反馈：$content")
                     botProvider.send(feedbackMsg)
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
@@ -197,6 +196,8 @@ class Approve(
                 val manager = request.update.callbackQuery().from()
                 val recordUUID = callbackData.replace("remove:", "")
                 recordElastic.deleteRecord(recordUUID, manager)
+                val msg = normalMsgFactory.makeClearMarkupMsg(request.chatId,request.messageId!!)
+                botProvider.send(msg)
             }
         }
     }

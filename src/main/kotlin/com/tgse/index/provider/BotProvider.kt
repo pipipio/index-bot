@@ -62,6 +62,7 @@ class BotProvider(
                 BotCommand("list", "收录列表"),
                 BotCommand("mine", "我提交的"),
                 // BotCommand("setting", "设 置"),
+                BotCommand("cancel", "取消操作"),
                 BotCommand("help", "帮 助"),
             )
             val setResponse = bot.execute(setCommands)

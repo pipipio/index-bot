@@ -7,6 +7,7 @@ import com.pengrad.telegrambot.request.EditMessageText
 import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.datasource.RecordElastic
 import com.tgse.index.datasource.Reply
+import com.tgse.index.datasource.Type
 import com.tgse.index.provider.BotProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Component
 class ListMsgFactory(
     override val botProvider: BotProvider,
     override val reply: Reply,
+    private val type: Type,
     private val recordElastic: RecordElastic,
     @Value("\${secretary.list.size}")
     private val perPageSize: Int
@@ -22,7 +24,9 @@ class ListMsgFactory(
 
     fun makeListFirstPageMsg(chatId: Long, keywords: String, pageIndex: Int): SendMessage? {
         val range = IntRange(((pageIndex - 1) * perPageSize), pageIndex * perPageSize)
-        val (records, totalCount) = recordElastic.searchRecords(keywords, range.first, perPageSize)
+        val (records, totalCount) =
+            if (type.contains(keywords)) recordElastic.searchRecordsByClassification( keywords, range.first, perPageSize)
+            else recordElastic.searchRecordsByKeyword(keywords, range.first, perPageSize)
         if (totalCount == 0L) return null
         val sb = StringBuffer()
         records.forEach {
@@ -36,7 +40,9 @@ class ListMsgFactory(
 
     fun makeListNextPageMsg(chatId: Long, messageId: Int, keywords: String, pageIndex: Int): EditMessageText {
         val range = IntRange(((pageIndex - 1) * perPageSize), pageIndex * perPageSize)
-        val (records, totalCount) = recordElastic.searchRecords(keywords, range.first, perPageSize)
+        val (records, totalCount) =
+            if (type.contains(keywords)) recordElastic.searchRecordsByClassification( keywords, range.first, perPageSize)
+            else recordElastic.searchRecordsByKeyword(keywords, range.first, perPageSize)
         val sb = StringBuffer()
         records.forEach {
             val item = generateRecordItem(it)

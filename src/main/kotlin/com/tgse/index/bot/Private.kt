@@ -57,16 +57,20 @@ class Private(
                     // 回执
                     when {
                         request.update.callbackQuery() != null -> executeByButton(request)
-                        awaitStatus.getAwaitStatus(request.chatId) != null -> {
-                            val callbackData = awaitStatus.getAwaitStatus(request.chatId)!!.callbackData
-                            if (callbackData.startsWith("approve") || callbackData.startsWith("enroll"))
-                                enrollExecute.executeByStatus(EnrollExecute.Type.Enroll, request)
-                            else if (callbackData.startsWith("update"))
-                                recordExecute.executeByStatus(request)
-                            else
-                                executeByStatus(EnrollExecute.Type.Enroll, request)
-                        }
                         request.update.message().text().startsWith("/") -> executeByCommand(request)
+                        awaitStatus.getAwaitStatus(request.chatId) != null -> {
+                            try{
+                                val callbackData = awaitStatus.getAwaitStatus(request.chatId)!!.callbackData
+                                if (callbackData.startsWith("approve") || callbackData.startsWith("enroll"))
+                                    enrollExecute.executeByStatus(EnrollExecute.Type.Enroll, request)
+                                else if (callbackData.startsWith("update"))
+                                    recordExecute.executeByStatus(request)
+                                else
+                                    executeByStatus(EnrollExecute.Type.Enroll, request)
+                            }catch (e:Throwable){
+                                awaitStatus.clearAwaitStatus(request.chatId)
+                            }
+                        }
                         request.update.message().text().startsWith("@") -> executeByEnroll(request)
                         request.update.message().text().startsWith("https://t.me/") -> executeByEnroll(request)
                         else -> executeByText(request)
@@ -216,6 +220,10 @@ class Private(
             cmd == "list" -> normalMsgFactory.makeListReplyMsg(request.chatId)
             cmd == "setting" -> normalMsgFactory.makeReplyMsg(request.chatId, "only-group")
             cmd == "help" -> normalMsgFactory.makeReplyMsg(request.chatId, "help-private")
+            cmd == "cancel" -> {
+                awaitStatus.clearAwaitStatus(request.chatId)
+                normalMsgFactory.makeReplyMsg(request.chatId,"cancel")
+            }
             else -> normalMsgFactory.makeReplyMsg(request.chatId, "can-not-understand")
         }
         sendMessage.disableWebPagePreview(true)
@@ -224,9 +232,13 @@ class Private(
     }
 
     private fun executeBySuperCommand(request: BotPrivateRequest): SendMessage {
-        val recordUUID = request.update.message().text().replaceFirst("/start ", "")
-        val record = recordElastic.getRecord(recordUUID)!!
-        return recordMsgFactory.makeRecordMsg(request.chatId, record)
+        return try {
+            val recordUUID = request.update.message().text().replaceFirst("/start ", "")
+            val record = recordElastic.getRecord(recordUUID)!!
+            recordMsgFactory.makeRecordMsg(request.chatId, record)
+        }catch (e:Throwable){
+            normalMsgFactory.makeReplyMsg(request.chatId,"start")
+        }
     }
 
     private fun executeByButton(request: BotPrivateRequest) {
@@ -267,8 +279,10 @@ class Private(
         when {
             statusCallbackData.startsWith("feedback:") -> {
                 val recordUUID = statusCallbackData.replace("feedback:", "")
+                val record = recordElastic.getRecord(recordUUID)!!
+                val user = request.update.message().from()
                 val content = request.update.message().text()
-                val feedback = Pair(recordUUID, content)
+                val feedback = Triple(record, user, content)
                 watershedProvider.feedbackSubject.onNext(feedback)
                 // 清除状态
                 awaitStatus.clearAwaitStatus(request.chatId!!)

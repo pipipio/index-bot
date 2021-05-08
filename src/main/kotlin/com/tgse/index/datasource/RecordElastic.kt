@@ -132,9 +132,29 @@ class RecordElastic(
     val deleteRecordObservable: Observable<Pair<Record, User>> = deleteRecordSubject.distinct()
 
     /**
+     * 根据分类查询
+     */
+    fun searchRecordsByClassification(classification: String, from: Int, size: Int): Pair<MutableList<Record>, Long> {
+        val searchRequest = SearchRequest(index)
+        val searchSourceBuilder = SearchSourceBuilder()
+        val queryBuilder = QueryBuilders.matchQuery("classification", classification)
+        searchSourceBuilder.query(queryBuilder).from(from).size(size).sort("members", SortOrder.DESC)
+        searchRequest.source(searchSourceBuilder)
+        val response = elasticsearchProvider.search(searchRequest)
+
+        val records = arrayListOf<Record>()
+        response.hits.hits.forEach {
+            val record = generateRecordFromHashMap(it.id, it.sourceAsMap)
+            records.add(record)
+        }
+        val totalCount = response.hits.totalHits?.value ?: 0L
+        return Pair(records.toMutableList(), totalCount)
+    }
+
+    /**
      * 根据关键词查询
      */
-    fun searchRecords(keyword: String, from: Int, size: Int): Pair<MutableList<Record>, Long> {
+    fun searchRecordsByKeyword(keyword: String, from: Int, size: Int): Pair<MutableList<Record>, Long> {
         val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         val queryBuilder = QueryBuilders.multiMatchQuery(keyword, "title", "tags", "classification")
@@ -154,7 +174,7 @@ class RecordElastic(
     /**
      * 根据提交者查询
      */
-    fun searchRecords(user: User, from: Int, size: Int): Pair<MutableList<Record>, Long> {
+    fun searchRecordsByCreator(user: User, from: Int, size: Int): Pair<MutableList<Record>, Long> {
         try {
             val searchRequest = SearchRequest(index)
             val searchSourceBuilder = SearchSourceBuilder()

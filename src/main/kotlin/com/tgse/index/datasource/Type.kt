@@ -36,6 +36,10 @@ class Type {
         return true
     }
 
+    fun contains(type: String): Boolean {
+        return typesOnDisk.contains(type)
+    }
+
     private fun write() {
         val outputStream = FileOutputStream(path.toFile())
         outputStream.writer(charset("UTF-8")).use {

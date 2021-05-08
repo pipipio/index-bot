@@ -39,7 +39,7 @@ class NormalMsgFactory(
 
     fun makeListReplyMsg(chatId: Long): SendMessage {
         val keyboard = makeReplyKeyboardMarkup()
-        return SendMessage(chatId, "list").replyMarkup(keyboard)
+        return SendMessage(chatId, reply.message["list"]!!).replyMarkup(keyboard)
     }
 
     fun makeBlacklistJoinedReplyMsg(

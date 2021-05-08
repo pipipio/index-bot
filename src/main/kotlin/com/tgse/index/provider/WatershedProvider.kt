@@ -2,7 +2,9 @@ package com.tgse.index.provider
 
 import com.pengrad.telegrambot.model.Chat
 import com.pengrad.telegrambot.model.Update
+import com.pengrad.telegrambot.model.User
 import com.tgse.index.bot.Group
+import com.tgse.index.datasource.RecordElastic
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 import org.slf4j.LoggerFactory
@@ -63,8 +65,8 @@ class WatershedProvider(
     private val logger = LoggerFactory.getLogger(Group::class.java)
     private val requestSubject = BehaviorSubject.create<BotRequest>()
     val requestObservable: Observable<BotRequest> = requestSubject.distinct()
-    val feedbackSubject = BehaviorSubject.create<Pair<String, String>>()
-    val feedbackObservable: Observable<Pair<String, String>> = feedbackSubject.distinct()
+    val feedbackSubject = BehaviorSubject.create<Triple<RecordElastic.Record, User, String>>()
+    val feedbackObservable: Observable<Triple<RecordElastic.Record, User, String>> = feedbackSubject.distinct()
 
     init {
         subscribeUpdate()

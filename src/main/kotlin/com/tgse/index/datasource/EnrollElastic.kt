@@ -139,7 +139,8 @@ class EnrollElastic(
     fun getSubmittedEnrollByUsername(username: String): Enroll? {
         val usernameMatch = QueryBuilders.matchQuery("username",username)
         val statusMatch = QueryBuilders.matchQuery("isSubmit",true)
-        val queryBuilder = QueryBuilders.boolQuery().must(usernameMatch).must(statusMatch)
+        val passMatch = QueryBuilders.existsQuery("approve")
+        val queryBuilder = QueryBuilders.boolQuery().must(usernameMatch).must(statusMatch).mustNot(passMatch)
         return getSubmittedEnrollByQuery(queryBuilder)
     }
 

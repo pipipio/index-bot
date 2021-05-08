@@ -61,7 +61,7 @@ class MineMsgFactory(
         user: User,
         from: Int
     ): Triple<MutableList<RecordElastic.Record>, MutableList<EnrollElastic.Enroll>, Long> {
-        val (records, recordTotalCount) = recordElastic.searchRecords(user, from, perPageSize)
+        val (records, recordTotalCount) = recordElastic.searchRecordsByCreator(user, from, perPageSize)
         val enrollsFrom = if (from > recordTotalCount) from - recordTotalCount.toInt() else 0
         val (enrolls, enrollTotalCount) = enrollElastic.searchEnrolls(user, enrollsFrom, perPageSize - records.size)
         val totalCount = enrollTotalCount + recordTotalCount
