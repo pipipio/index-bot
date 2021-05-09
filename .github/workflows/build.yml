@@ -29,12 +29,12 @@ jobs:
           ./gradlew bootJar
 
       - name: Create artifacts directory
-        run: mkdir artifacts
+        run: mkdir -p artifacts/bot
 
       - name: Move files
         run: |
-          mv index-bot/build/libs/telegram-index-bot-2.0.0.jar artifacts/
           mv package/setup.sh artifacts/
+          mv index-bot/build/libs/telegram-index-bot-2.0.0.jar artifacts/bot/
 
       - name: Publish artifacts
         uses: actions/upload-artifact@v2
