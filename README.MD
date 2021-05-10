@@ -3,7 +3,7 @@ for find group,channel,bot
 
 
 
-edit setup.sh 
+vim setup.sh 
 ``` shell
 user="myuser"
 ```
@@ -11,5 +11,6 @@ user="myuser"
 
 ``` shell
 chmod +x ./setup.sh
+./setup.sh
 sudo ./setup.sh install
 ```

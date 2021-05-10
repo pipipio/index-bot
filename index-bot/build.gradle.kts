@@ -42,6 +42,7 @@ dependencies {
     // telegram
     api("com.github.pengrad:java-telegram-bot-api:5.0.1")
     // elasticsearch
+    implementation("org.elasticsearch:elasticsearch:7.12.0")
     implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.12.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

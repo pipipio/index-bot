@@ -13,7 +13,7 @@ import java.nio.file.Path
 @Component
 class Type {
 
-    private val path = Path.of("src/main/resources/data/type.xml")
+    private val path = Path.of("lang/type.xml")
     private lateinit var typesOnDisk: MutableList<String>
     val types: Array<String>
         get() = typesOnDisk.toTypedArray()

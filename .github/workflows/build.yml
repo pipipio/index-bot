@@ -28,13 +28,13 @@ jobs:
           chmod +x gradlew
           ./gradlew bootJar
 
-      - name: Create artifacts directory
-        run: mkdir -p artifacts/bot
-
       - name: Move files
         run: |
+          mkdir -p artifacts
           mv package/setup.sh artifacts/
-          mv index-bot/build/libs/telegram-index-bot-2.0.0.jar artifacts/bot/
+          mv package/lang artifacts/
+          mv index-bot/build/libs/telegram-index-bot-2.0.0.jar artifacts/
+          mv index-bot/src/main/resources/application.properties artifacts/
 
       - name: Publish artifacts
         uses: actions/upload-artifact@v2

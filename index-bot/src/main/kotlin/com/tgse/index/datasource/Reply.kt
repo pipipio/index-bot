@@ -19,7 +19,7 @@ class Reply {
     init {
         // 读取xml文件内容
         val reader = SAXReader()
-        val doc: Document = reader.read(File("src/main/resources/data/reply.xml"))
+        val doc: Document = reader.read(File("lang/reply.xml"))
         val root: Element = doc.getRootElement()
         val it: Iterator<Element> = root.elementIterator()
         while (it.hasNext()) {

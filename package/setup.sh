@@ -7,10 +7,10 @@ workspace_elastic="$workspace/elasticsearch-7.12.0"
 
 java_home="$workspace/elasticsearch-7.12.0/jdk/bin/java"
 elastic_home="$workspace_elastic/bin/elasticsearch"
-bot_home="$workspace/bot/telegram-index-bot-2.0.0.jar"
+bot_home="$workspace/telegram-index-bot-2.0.0.jar"
 
 service_name="tg-se-index-bot"
-
+``
 elastic_port="9200"
 
 
