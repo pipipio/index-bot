@@ -53,6 +53,18 @@
       "type": "java.lang.Integer",
       "defaultValue": "30",
       "description": "secretary.list.size"
+    },
+    {
+      "name": "secretary.memory.size",
+      "type": "java.lang.Integer",
+      "defaultValue": "30",
+      "description": "secretary.memory.size"
+    },
+    {
+      "name": "secretary.memory.cycle",
+      "type": "java.lang.Integer",
+      "defaultValue": "30",
+      "description": "secretary.memory.cycle"
     }
   ]
 }

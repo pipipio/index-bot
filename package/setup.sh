@@ -4,8 +4,9 @@ user="the user name"
 
 workspace=$(dirname $(readlink -f $0))
 workspace_elastic="$workspace/elasticsearch-7.12.0"
+workspace_java="$workspace/jdk-11.0.11"
 
-java_home="$workspace/elasticsearch-7.12.0/jdk/bin/java"
+java_home="$workspace_java/bin/java"
 elastic_home="$workspace_elastic/bin/elasticsearch"
 bot_home="$workspace/telegram-index-bot-2.0.0.jar"
 
@@ -20,6 +21,12 @@ if [ ! -d $workspace_elastic ]; then
     tar -xzvf elasticsearch-7.12.0-linux-x86_64.tar.gz
     tar -xzvf dididi-upcar-elasticsearch-analysis-ik-v7.12.0-commit-0-g614ee3a.tar.gz -C elasticsearch-7.12.0/plugins/
     rm dididi-upcar-elasticsearch-analysis-ik-v7.12.0-commit-0-g614ee3a.tar.gz elasticsearch-7.12.0-linux-x86_64.tar.gz 
+fi
+
+
+if [ ! -d $workspace_java ]; then
+    # todo download jdk 11
+    echo "need jdk 11"
 fi
 
 if [[ "$1" == "help" || "$1" == "" ]]; then
