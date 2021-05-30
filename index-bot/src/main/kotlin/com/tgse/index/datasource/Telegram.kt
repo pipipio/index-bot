@@ -1,5 +1,6 @@
 package com.tgse.index.datasource
 
+import com.pengrad.telegrambot.model.User
 import com.pengrad.telegrambot.request.GetChat
 import com.pengrad.telegrambot.request.GetChatMembersCount
 import com.tgse.index.provider.BotProvider
@@ -120,4 +121,14 @@ class Telegram(
         }
     }
 
+}
+
+fun User.nick(): String {
+    val firstName =
+        if (firstName() == null) ""
+        else firstName()
+    val lastName =
+        if (lastName() == null) ""
+        else lastName()
+    return "$firstName$lastName"
 }

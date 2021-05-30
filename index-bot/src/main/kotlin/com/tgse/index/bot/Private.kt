@@ -11,7 +11,6 @@ import com.tgse.index.msgFactory.ListMsgFactory
 import com.tgse.index.msgFactory.MineMsgFactory
 import com.tgse.index.msgFactory.NormalMsgFactory
 import com.tgse.index.msgFactory.RecordMsgFactory
-import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import com.tgse.index.provider.WatershedProvider.*
