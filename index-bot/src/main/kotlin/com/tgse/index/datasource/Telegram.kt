@@ -87,15 +87,15 @@ class Telegram(
         var fixedDescription: String? = about.replace("<[^>]+>".toRegex(), "")
         fixedDescription = if (fixedDescription!!.isEmpty() || fixedDescription.isBlank()) null else fixedDescription
         val fixedMembers = when {
-            members.contains(",") -> members.split(',')[0].replace("members", "").replace(" ".toRegex(), "").toLong()
-            members.contains("subscribers") -> members.replace("subscribers", "").replace(" ".toRegex(), "").toLong()
+            members.contains(",") -> members.split(',')[0].replace("members", "").trim().toLong()
+            members.contains("subscriber") -> members.replace("subscribers", "").replace("subscriber", "").trim().toLong()
             else -> 0L
         }
 
         return when {
             isNotFound -> null
             members.contains("online") -> TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
-            members.contains("subscribers") -> TelegramChannel(username, title, fixedDescription, fixedMembers)
+            members.contains("subscriber") -> TelegramChannel(username, title, fixedDescription, fixedMembers)
             members.toLowerCase().endsWith("bot") -> TelegramBot(username, title, fixedDescription)
             else -> TelegramPerson(null, username, title, fixedDescription)
         }
