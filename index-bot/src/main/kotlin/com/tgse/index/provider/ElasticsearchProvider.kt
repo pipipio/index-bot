@@ -28,7 +28,7 @@ class ElasticsearchProvider : AutoCloseable {
     private val client = RestHighLevelClient(
         RestClient.builder(
             HttpHost("localhost", 9200, "http"),
-            HttpHost("localhost", 9201, "http")
+            // HttpHost("localhost", 9201, "http")
         )
     )
 

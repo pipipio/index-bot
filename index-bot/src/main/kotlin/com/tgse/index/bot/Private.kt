@@ -1,5 +1,6 @@
 package com.tgse.index.bot
 
+import com.pengrad.telegrambot.model.User
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.*
 import com.tgse.index.bot.execute.BlacklistExecute
@@ -59,7 +60,7 @@ class Private(
                         request.update.callbackQuery() != null -> executeByButton(request)
                         request.update.message().text().startsWith("/") -> executeByCommand(request)
                         awaitStatus.getAwaitStatus(request.chatId) != null -> {
-                            try{
+                            try {
                                 val callbackData = awaitStatus.getAwaitStatus(request.chatId)!!.callbackData
                                 if (callbackData.startsWith("approve") || callbackData.startsWith("enroll"))
                                     enrollExecute.executeByStatus(EnrollExecute.Type.Enroll, request)
@@ -67,7 +68,7 @@ class Private(
                                     recordExecute.executeByStatus(request)
                                 else
                                     executeByStatus(EnrollExecute.Type.Enroll, request)
-                            }catch (e:Throwable){
+                            } catch (e: Throwable) {
                                 awaitStatus.clearAwaitStatus(request.chatId)
                             }
                         }
@@ -78,13 +79,10 @@ class Private(
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
                     e.printStackTrace()
-                }finally {
+                } finally {
                     // 记录日活用户
-                    val user = when {
-                        request.update.message() != null -> request.update.message().from()
-                        else -> request.update.callbackQuery().message().from()
-                    }
-                    userElastic.footprint(user)
+                    val user = request.update.message()?.from()
+                    if (user != null) footprint(user)
                 }
             },
             { throwable ->
@@ -122,7 +120,10 @@ class Private(
 
     private fun executeByText(request: BotPrivateRequest) {
         val keywords = request.update.message().text()
-        val msg = listMsgFactory.makeListFirstPageMsg(request.chatId, keywords, 1) ?: normalMsgFactory.makeReplyMsg(    request.chatId, "nothing"   )
+        val msg = listMsgFactory.makeListFirstPageMsg(request.chatId, keywords, 1) ?: normalMsgFactory.makeReplyMsg(
+            request.chatId,
+            "nothing"
+        )
         botProvider.send(msg)
     }
 
@@ -222,7 +223,7 @@ class Private(
             cmd == "help" -> normalMsgFactory.makeReplyMsg(request.chatId, "help-private")
             cmd == "cancel" -> {
                 awaitStatus.clearAwaitStatus(request.chatId)
-                normalMsgFactory.makeReplyMsg(request.chatId,"cancel")
+                normalMsgFactory.makeReplyMsg(request.chatId, "cancel")
             }
             else -> normalMsgFactory.makeReplyMsg(request.chatId, "can-not-understand")
         }
@@ -236,8 +237,8 @@ class Private(
             val recordUUID = request.update.message().text().replaceFirst("/start ", "")
             val record = recordElastic.getRecord(recordUUID)!!
             recordMsgFactory.makeRecordMsg(request.chatId, record)
-        }catch (e:Throwable){
-            normalMsgFactory.makeReplyMsg(request.chatId,"start")
+        } catch (e: Throwable) {
+            normalMsgFactory.makeReplyMsg(request.chatId, "start")
         }
     }
 
@@ -257,7 +258,7 @@ class Private(
                 val callback = callbackData.replace("page:", "").split("&")
                 val keywords = callback[0]
                 val pageIndex = callback[1].toInt()
-                val msg = listMsgFactory.makeListNextPageMsg(request.chatId,request.messageId!!, keywords, pageIndex)
+                val msg = listMsgFactory.makeListNextPageMsg(request.chatId, request.messageId!!, keywords, pageIndex)
                 botProvider.send(msg)
             }
             callbackData.startsWith("mine") -> {
@@ -291,4 +292,14 @@ class Private(
             }
         }
     }
+
+    private fun footprint(user: User) {
+        try {
+            userElastic.footprint(user)
+        } catch (e: Throwable) {
+            botProvider.sendErrorMessage(e)
+            e.printStackTrace()
+        }
+    }
+
 }

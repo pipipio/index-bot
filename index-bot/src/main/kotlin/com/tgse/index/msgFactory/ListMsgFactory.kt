@@ -11,6 +11,7 @@ import com.tgse.index.datasource.Type
 import com.tgse.index.provider.BotProvider
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
+import java.util.*
 
 @Component
 class ListMsgFactory(
@@ -19,14 +20,20 @@ class ListMsgFactory(
     private val type: Type,
     private val recordElastic: RecordElastic,
     @Value("\${secretary.list.size}")
-    private val perPageSize: Int
+    private val perPageSize: Int,
+    @Value("\${secretary.memory.size}")
+    private val memorySize: Int,
+    @Value("\${secretary.memory.cycle}")
+    private val memoryCycle: Int
 ) : BaseMsgFactory(reply, botProvider) {
+
+    private val searchListSaved = mutableMapOf<String, MutableMap<Int, Pair<MutableList<RecordElastic.Record>, Long>>>()
+    private val searchListSavedTimers = mutableMapOf<String, MutableMap<Int, Timer>>()
+    private var searchListSavedCount = 0
 
     fun makeListFirstPageMsg(chatId: Long, keywords: String, pageIndex: Int): SendMessage? {
         val range = IntRange(((pageIndex - 1) * perPageSize), pageIndex * perPageSize)
-        val (records, totalCount) =
-            if (type.contains(keywords)) recordElastic.searchRecordsByClassification( keywords, range.first, perPageSize)
-            else recordElastic.searchRecordsByKeyword(keywords, range.first, perPageSize)
+        val (records, totalCount) = searchList(keywords,range.first)
         if (totalCount == 0L) return null
         val sb = StringBuffer()
         records.forEach {
@@ -40,9 +47,7 @@ class ListMsgFactory(
 
     fun makeListNextPageMsg(chatId: Long, messageId: Int, keywords: String, pageIndex: Int): EditMessageText {
         val range = IntRange(((pageIndex - 1) * perPageSize), pageIndex * perPageSize)
-        val (records, totalCount) =
-            if (type.contains(keywords)) recordElastic.searchRecordsByClassification( keywords, range.first, perPageSize)
-            else recordElastic.searchRecordsByKeyword(keywords, range.first, perPageSize)
+        val (records, totalCount) = searchList(keywords, range.first)
         val sb = StringBuffer()
         records.forEach {
             val item = generateRecordItem(it)
@@ -51,6 +56,19 @@ class ListMsgFactory(
         val keyboard = makeListPageKeyboardMarkup(keywords, totalCount, pageIndex, perPageSize, range)
         return EditMessageText(chatId, messageId, sb.toString())
             .parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+    }
+
+    private fun searchList(keywords: String, from: Int): Pair<MutableList<RecordElastic.Record>, Long> {
+        // 如若已暂存直接返回
+        val saved = get(keywords, from)
+        if (saved != null) return saved
+        // 如若未暂存，去elasticsearch中查询
+        val isShouldConsiderKeywords = type.contains(keywords)
+        val searched =
+            if (isShouldConsiderKeywords) recordElastic.searchRecordsByClassification(keywords, from, perPageSize)
+            else recordElastic.searchRecordsByKeyword(keywords, from, perPageSize)
+        save(keywords,from,searched)
+        return searched
     }
 
     private fun makeListPageKeyboardMarkup(
@@ -82,6 +100,44 @@ class ListMsgFactory(
                 )
             else -> InlineKeyboardMarkup()
         }
+    }
+
+    @Synchronized
+    private fun get(keywords: String, from: Int): Pair<MutableList<RecordElastic.Record>, Long>? {
+        return if (searchListSaved[keywords] != null && searchListSaved[keywords]!![from] != null)
+            searchListSaved[keywords]!![from]!!
+        else
+            null
+    }
+
+    @Synchronized
+    private fun save(keywords: String, from: Int, searchList: Pair<MutableList<RecordElastic.Record>, Long>) {
+        if (searchListSavedCount >= memorySize) return
+        if (searchListSaved[keywords] == null) searchListSaved[keywords] = mutableMapOf()
+        searchListSaved[keywords]!![from] = searchList
+        searchListSavedCount += 1
+
+        val timer = Timer("saved-list-cancel", true)
+        val timerTask = object : TimerTask() {
+            override fun run() {
+                try {
+                    remove(keywords, from)
+                } catch (e: Throwable) {
+                    // ignore
+                }
+            }
+        }
+        timer.schedule(timerTask, memoryCycle * 1000L)
+        if (searchListSavedTimers[keywords] == null) searchListSavedTimers[keywords] = mutableMapOf()
+        if (searchListSavedTimers[keywords]!![from] != null) searchListSavedTimers[keywords]!![from]!!.cancel()
+        searchListSavedTimers[keywords]!![from] = timer
+    }
+
+    @Synchronized
+    private fun remove(keywords: String, from: Int) {
+        if (searchListSaved[keywords]!!.size == 1) searchListSaved.remove(keywords)
+        else searchListSaved[keywords]!!.remove(from)
+        searchListSavedCount -= 1
     }
 
 }

@@ -1,5 +1,6 @@
 package com.tgse.index.provider
 
+import com.google.common.util.concurrent.MoreExecutors
 import com.pengrad.telegrambot.TelegramBot
 import com.pengrad.telegrambot.UpdatesListener
 import com.pengrad.telegrambot.model.BotCommand
@@ -8,7 +9,6 @@ import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.request.*
 import com.pengrad.telegrambot.response.*
 import com.tgse.index.SetCommandException
-import com.tgse.index.bot.Group
 import com.tgse.index.setting.BotProperties
 import com.tgse.index.setting.ProxyProperties
 import io.reactivex.Observable
@@ -19,7 +19,8 @@ import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.*
-
+import java.util.concurrent.Executors
+import java.util.concurrent.Future
 
 @Component
 class BotProvider(
@@ -28,6 +29,15 @@ class BotProvider(
     @Value("\${secretary.autoDeleteMsgCycle}")
     private val autoDeleteMsgCycle: Long
 ) {
+    private val requestExecutorService = run {
+        val pool = Executors.newCachedThreadPool {
+            val thread = Thread(it, "用户请求处理线程")
+            thread.isDaemon = true
+            thread
+        }
+        MoreExecutors.listeningDecorator(pool)
+    }
+
     private val bot: TelegramBot = run {
         if (proxyProperties.enabled) {
             val socketAddress = InetSocketAddress(proxyProperties.ip, proxyProperties.port)
@@ -75,8 +85,17 @@ class BotProvider(
 
     private fun handleUpdate() {
         bot.setUpdatesListener { updates ->
+            val futures = mutableListOf<Future<*>>()
             updates.forEach { update ->
-                updateSubject.onNext(update)
+                futures.add(requestExecutorService.submit { updateSubject.onNext(update) })
+            }
+            for (future in futures) {
+                try {
+                    future.get()
+                } catch (e: Throwable) {
+                    e.printStackTrace()
+                    throw e
+                }
             }
             UpdatesListener.CONFIRMED_UPDATES_ALL
         }
