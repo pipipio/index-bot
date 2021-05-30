@@ -43,6 +43,24 @@
       "description": "proxy port"
     },
     {
+      "name": "elastic.schema",
+      "type": "java.lang.String",
+      "defaultValue": "http",
+      "description": "elastic schema"
+    },
+    {
+      "name": "elastic.hostname",
+      "type": "java.lang.String",
+      "defaultValue": "localhost",
+      "description": "elastic hostname"
+    },
+    {
+      "name": "elastic.port",
+      "type": "java.lang.String",
+      "defaultValue": "9200",
+      "description": "elastic port"
+    },
+    {
       "name": "secretary.autoDeleteMsgCycle",
       "type": "java.lang.Integer",
       "defaultValue": "30",
