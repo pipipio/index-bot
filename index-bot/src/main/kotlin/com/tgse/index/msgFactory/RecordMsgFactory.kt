@@ -7,7 +7,6 @@ import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup
 import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.datasource.*
-import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import org.springframework.stereotype.Component
 

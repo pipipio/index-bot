@@ -1,5 +1,6 @@
 package com.tgse.index.provider
 
+import com.tgse.index.setting.ElasticProperties
 import org.apache.http.HttpHost
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.delete.DeleteRequest
@@ -21,14 +22,14 @@ import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.springframework.stereotype.Component
 
-
 @Component
-class ElasticsearchProvider : AutoCloseable {
+class ElasticsearchProvider(
+    elasticProperties: ElasticProperties
+) : AutoCloseable {
 
     private val client = RestHighLevelClient(
         RestClient.builder(
-            HttpHost("139.180.199.65", 9200, "http"),
-            // HttpHost("139.180.199.65", 9201, "http")
+            HttpHost(elasticProperties.hostname, elasticProperties.port, elasticProperties.schema),
         )
     )
 

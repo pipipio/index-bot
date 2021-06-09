@@ -12,13 +12,3 @@ class IndexApplication
 fun main(args: Array<String>) {
     runApplication<IndexApplication>(*args)
 }
-
-fun User.nick(): String {
-    val firstName =
-        if (firstName() == null) ""
-        else firstName()
-    val lastName =
-        if (lastName() == null) ""
-        else lastName()
-    return "$firstName$lastName"
-}

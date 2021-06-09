@@ -3,8 +3,8 @@ package com.tgse.index.bot.execute
 import com.tgse.index.datasource.Blacklist
 import com.tgse.index.datasource.EnrollElastic
 import com.tgse.index.datasource.Telegram
+import com.tgse.index.datasource.nick
 import com.tgse.index.msgFactory.NormalMsgFactory
-import com.tgse.index.nick
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import org.springframework.stereotype.Component
