@@ -88,8 +88,8 @@ class Telegram(
         var fixedDescription: String? = about.replace("<[^>]+>".toRegex(), "")
         fixedDescription = if (fixedDescription!!.isEmpty() || fixedDescription.isBlank()) null else fixedDescription
         val fixedMembers = when {
-            members.contains(",") -> members.split(',')[0].replace("members", "").trim().toLong()
-            members.contains("subscriber") -> members.replace("subscribers", "").replace("subscriber", "").trim().toLong()
+            members.contains(",") -> members.split(',')[0].replace("members", "").replace(" ","").toLong()
+            members.contains("subscriber") -> members.replace("subscribers", "").replace("subscriber", "").replace(" ","").toLong()
             else -> 0L
         }
 
