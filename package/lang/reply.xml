@@ -31,6 +31,14 @@
     </msg>
     <msg>
         <type>
+            group-anonymous-authority
+        </type>
+        <content>
+            请先关闭匿名管理员。
+        </content>
+    </msg>
+    <msg>
+        <type>
             group-not-enroll
         </type>
         <content>

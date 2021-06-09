@@ -1,5 +1,6 @@
 package com.tgse.index.bot
 
+import com.pengrad.telegrambot.model.User
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.AnswerCallbackQuery
 import com.pengrad.telegrambot.request.GetChatAdministrators
@@ -112,9 +113,12 @@ class Group(
         // 校验bot权限
         if (!checkMyAuthority(request.chatId))
             return normalMsgFactory.makeReplyMsg(request.chatId, "group-bot-authority")
-        // 校验提交者权限
         val user = request.update.message().from()
-        if (!checkUserAuthority(request.chatId, user.id().toLong()))
+        // 校验匿名管理员
+        if (user.username() == "GroupAnonymousBot")
+            return normalMsgFactory.makeReplyMsg(request.chatId, "group-anonymous-authority")
+        // 校验提交者权限
+        if (!checkUserAuthority(request.chatId, user))
             return normalMsgFactory.makeReplyMsg(request.chatId, "group-user-authority")
         // 人员黑名单检测
         val userBlack = blacklist.get(user.id().toLong())
@@ -169,9 +173,12 @@ class Group(
         // 校验bot权限
         if (!checkMyAuthority(request.chatId))
             return normalMsgFactory.makeReplyMsg(request.chatId, "group-bot-authority")
-        // 校验提交者权限
         val user = request.update.message().from()
-        if (!checkUserAuthority(request.chatId, user.id().toLong()))
+        // 校验匿名管理员
+        if (user.username() == "GroupAnonymousBot")
+            return normalMsgFactory.makeReplyMsg(request.chatId, "group-anonymous-authority")
+        // 校验提交者权限
+        if (!checkUserAuthority(request.chatId, user))
             return normalMsgFactory.makeReplyMsg(request.chatId, "group-user-authority")
         // 校验权限
         val record = recordElastic.getRecordByChatId(request.chatId)
@@ -202,11 +209,11 @@ class Group(
      * 检查用户权限
      * 必须为管理员
      */
-    private fun checkUserAuthority(chatId: Long, userId: Long): Boolean {
+    private fun checkUserAuthority(chatId: Long, user: User): Boolean {
         val getAdministrators = GetChatAdministrators(chatId)
         val administrators = botProvider.send(getAdministrators)
-        val user = administrators.administrators().firstOrNull { it.user().id().toLong() == userId }
-        return user != null
+        val queryUser = administrators.administrators().firstOrNull { it.user().id() == user.id() }
+        return queryUser != null
     }
 
 }
