@@ -3,8 +3,8 @@ package com.tgse.index.datasource
 import com.pengrad.telegrambot.model.User
 import com.pengrad.telegrambot.request.GetChat
 import com.pengrad.telegrambot.request.GetChatMembersCount
+import com.tgse.index.ProxyProperties
 import com.tgse.index.provider.BotProvider
-import com.tgse.index.setting.ProxyProperties
 import org.springframework.stereotype.Component
 import org.jsoup.Jsoup
 import java.net.InetSocketAddress

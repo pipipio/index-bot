@@ -1,6 +1,6 @@
 package com.tgse.index.provider
 
-import com.tgse.index.setting.ElasticProperties
+import com.tgse.index.ElasticProperties
 import org.apache.http.HttpHost
 import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
 import org.elasticsearch.action.delete.DeleteRequest

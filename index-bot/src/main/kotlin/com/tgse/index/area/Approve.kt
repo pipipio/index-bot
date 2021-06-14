@@ -1,13 +1,13 @@
-package com.tgse.index.bot
+package com.tgse.index.area
 
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.AnswerCallbackQuery
 import com.pengrad.telegrambot.request.SendMessage
-import com.tgse.index.bot.execute.BlacklistExecute
-import com.tgse.index.bot.execute.EnrollExecute
+import com.tgse.index.area.execute.BlacklistExecute
+import com.tgse.index.area.execute.EnrollExecute
 import com.tgse.index.datasource.*
-import com.tgse.index.msgFactory.NormalMsgFactory
-import com.tgse.index.msgFactory.RecordMsgFactory
+import com.tgse.index.area.msgFactory.NormalMsgFactory
+import com.tgse.index.area.msgFactory.RecordMsgFactory
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import org.slf4j.LoggerFactory

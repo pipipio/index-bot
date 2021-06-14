@@ -1,7 +1,7 @@
-package com.tgse.index.board
+package com.tgse.index.area
 
 import com.tgse.index.datasource.RecordElastic
-import com.tgse.index.msgFactory.BulletinMsgFactory
+import com.tgse.index.area.msgFactory.BulletinMsgFactory
 import com.tgse.index.provider.BotProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value

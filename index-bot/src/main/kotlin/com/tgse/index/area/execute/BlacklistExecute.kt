@@ -1,10 +1,10 @@
-package com.tgse.index.bot.execute
+package com.tgse.index.area.execute
 
 import com.tgse.index.datasource.Blacklist
 import com.tgse.index.datasource.EnrollElastic
 import com.tgse.index.datasource.Telegram
 import com.tgse.index.datasource.nick
-import com.tgse.index.msgFactory.NormalMsgFactory
+import com.tgse.index.area.msgFactory.NormalMsgFactory
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import org.springframework.stereotype.Component
@@ -14,8 +14,8 @@ import java.util.*
 class BlacklistExecute(
     private val botProvider: BotProvider,
     private val msgFactory: NormalMsgFactory,
+    private val enrollElastic: EnrollElastic,
     private val blacklist: Blacklist,
-    private val enrollElastic: EnrollElastic
 ) {
 
     fun executeByBlacklistButton(request: WatershedProvider.BotRequest) {

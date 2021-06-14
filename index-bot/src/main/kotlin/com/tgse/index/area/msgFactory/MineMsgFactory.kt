@@ -1,4 +1,4 @@
-package com.tgse.index.msgFactory
+package com.tgse.index.area.msgFactory
 
 import com.pengrad.telegrambot.model.User
 import com.pengrad.telegrambot.model.request.InlineKeyboardButton

@@ -8,9 +8,9 @@ import com.pengrad.telegrambot.model.Update
 import com.pengrad.telegrambot.model.request.ChatAction
 import com.pengrad.telegrambot.request.*
 import com.pengrad.telegrambot.response.*
+import com.tgse.index.BotProperties
+import com.tgse.index.ProxyProperties
 import com.tgse.index.SetCommandException
-import com.tgse.index.setting.BotProperties
-import com.tgse.index.setting.ProxyProperties
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 import okhttp3.OkHttpClient
@@ -71,7 +71,6 @@ class BotProvider(
                 BotCommand("update", "修改收录信息"),
                 BotCommand("list", "收录列表"),
                 BotCommand("mine", "我提交的"),
-                // BotCommand("setting", "设 置"),
                 BotCommand("cancel", "取消操作"),
                 BotCommand("help", "帮 助"),
             )

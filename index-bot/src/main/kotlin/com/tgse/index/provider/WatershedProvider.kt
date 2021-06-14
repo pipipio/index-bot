@@ -3,7 +3,7 @@ package com.tgse.index.provider
 import com.pengrad.telegrambot.model.Chat
 import com.pengrad.telegrambot.model.Update
 import com.pengrad.telegrambot.model.User
-import com.tgse.index.bot.Group
+import com.tgse.index.area.Group
 import com.tgse.index.datasource.RecordElastic
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject

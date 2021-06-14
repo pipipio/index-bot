@@ -1,12 +1,12 @@
-package com.tgse.index.bot.execute
+package com.tgse.index.area.execute
 
 import com.tgse.index.MismatchException
-import com.tgse.index.board.Bulletin
+import com.tgse.index.area.Bulletin
 import com.tgse.index.datasource.AwaitStatus
 import com.tgse.index.datasource.EnrollElastic
 import com.tgse.index.datasource.RecordElastic
-import com.tgse.index.msgFactory.NormalMsgFactory
-import com.tgse.index.msgFactory.RecordMsgFactory
+import com.tgse.index.area.msgFactory.NormalMsgFactory
+import com.tgse.index.area.msgFactory.RecordMsgFactory
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import org.springframework.stereotype.Component

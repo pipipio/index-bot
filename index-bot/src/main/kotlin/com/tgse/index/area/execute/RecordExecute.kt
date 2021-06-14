@@ -1,13 +1,12 @@
-package com.tgse.index.bot.execute
+package com.tgse.index.area.execute
 
 import com.tgse.index.MismatchException
 import com.tgse.index.datasource.*
-import com.tgse.index.msgFactory.NormalMsgFactory
-import com.tgse.index.msgFactory.RecordMsgFactory
+import com.tgse.index.area.msgFactory.NormalMsgFactory
+import com.tgse.index.area.msgFactory.RecordMsgFactory
 import com.tgse.index.provider.BotProvider
 import com.tgse.index.provider.WatershedProvider
 import org.springframework.stereotype.Component
-import java.util.*
 
 @Component
 class RecordExecute(
@@ -48,7 +47,7 @@ class RecordExecute(
                     return
                 }
                 awaitStatus.setAwaitStatus(request.chatId!!, AwaitStatus.Await(request.messageId!!, callbackData))
-                val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "update-$field")
+                val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "update-$field").disableWebPagePreview(true)
                 botProvider.send(msg)
             }
             // 通过文字修改收录申请信息
@@ -112,7 +111,7 @@ class RecordExecute(
                         else -> throw MismatchException("链接不存在")
                     }
                     if(record.type != type) throw  throw MismatchException("类型不匹配")
-                    record.copy(link = msgContent)
+                    record.copy(username = username)
                 }
                 "title" -> {
                     if (msgContent.length > 26) throw MismatchException("标题太长，修改失败")

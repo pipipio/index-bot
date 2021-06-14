@@ -1,7 +1,5 @@
-package com.tgse.index.msgFactory
+package com.tgse.index.area.msgFactory
 
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton
-import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
 import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.datasource.*
 import com.tgse.index.provider.BotProvider

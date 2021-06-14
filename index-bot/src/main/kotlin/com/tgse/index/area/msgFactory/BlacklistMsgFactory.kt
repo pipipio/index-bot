@@ -1,4 +1,4 @@
-package com.tgse.index.msgFactory
+package com.tgse.index.area.msgFactory
 
 import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.datasource.*
