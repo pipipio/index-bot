@@ -146,10 +146,10 @@ class EnrollElastic(
 
     fun getSubmittedEnrollByChatId(chatId: Long): Enroll? {
         val chatIdMatch = QueryBuilders.matchQuery("chatId", chatId)
-        val statusMatch = QueryBuilders.matchQuery("isSubmit",true)
-        val queryBuilder = QueryBuilders.boolQuery().must(chatIdMatch).must(statusMatch)
+        val submitStatusMatch = QueryBuilders.matchQuery("isSubmit",true)
+        val passMatch = QueryBuilders.existsQuery("approve")
+        val queryBuilder = QueryBuilders.boolQuery().must(chatIdMatch).must(submitStatusMatch).mustNot(passMatch)
         return getSubmittedEnrollByQuery(queryBuilder)
-
     }
 
     private fun getSubmittedEnrollByQuery(queryBuilder: BoolQueryBuilder): Enroll? {
