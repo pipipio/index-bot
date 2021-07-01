@@ -54,8 +54,7 @@ class EnrollExecute(
                 botProvider.send(msg)
             }
             // 通过按钮修改收录申请信息
-            field == "enroll-class" -> {
-                // 删除上一条消息
+            field == "enroll-class" -> {                // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 // 回执新消息
                 val msg = when (type) {
@@ -147,6 +146,7 @@ class EnrollExecute(
                         if (!tags.contains(tag))
                             tags.add(tag)
                     }
+                    if (tags.size > 7) throw MismatchException("标签过多，请控制在7个以内")
                     enroll.copy(tags = tags)
                 }
                 else -> throw RuntimeException("error request")
