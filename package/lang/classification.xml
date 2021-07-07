@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<type>
-    <tp>
+<classification>
+    <content>
         社群,同城,闲聊,硬件,软件,编程,游戏,影音,ACG,学术,资讯,NSFW,政治经济,加密货币,科学上网,Linux,Telegram,Other,商业,博客
-    </tp>
-</type>
+    </content>
+</classification>

@@ -1,65 +1,21 @@
-package com.tgse.index.datasource
+package com.tgse.index.infrastructure.repository
 
-import com.pengrad.telegrambot.model.User
 import com.pengrad.telegrambot.request.GetChat
 import com.pengrad.telegrambot.request.GetChatMembersCount
 import com.tgse.index.ProxyProperties
-import com.tgse.index.provider.BotProvider
-import org.springframework.stereotype.Component
+import com.tgse.index.domain.repository.TelegramRepository
+import com.tgse.index.domain.service.TelegramService
+import com.tgse.index.infrastructure.provider.BotProvider
 import org.jsoup.Jsoup
+import org.springframework.stereotype.Repository
 import java.net.InetSocketAddress
 import java.net.Proxy
 
-/**
- * 获取群组、频道、bot信息
- */
-@Component
-class Telegram(
+@Repository
+class TelegramRepositoryImpl(
     private val botProvider: BotProvider,
     private val proxyProperties: ProxyProperties
-) {
-
-    enum class TelegramModType {
-        Channel,
-        Group,
-        Bot,
-        Person
-    }
-
-    interface TelegramMod {
-        val username: String?
-        val title: String
-        val description: String?
-    }
-
-    data class TelegramChannel(
-        override val username: String,
-        override val title: String,
-        override val description: String?,
-        val members: Long
-    ) : TelegramMod
-
-    data class TelegramGroup(
-        val chatId: Long?,
-        override val username: String?,
-        val link: String?,
-        override val title: String,
-        override val description: String?,
-        val members: Long
-    ) : TelegramMod
-
-    data class TelegramBot(
-        override val username: String,
-        override val title: String,
-        override val description: String?
-    ) : TelegramMod
-
-    data class TelegramPerson(
-        val chatId: Long?,
-        override val username: String,
-        override val title: String,
-        override val description: String?
-    ) : TelegramMod
+) : TelegramRepository {
 
     private val proxy: Proxy? = run {
         if (proxyProperties.enabled) {
@@ -73,7 +29,7 @@ class Telegram(
     /**
      * 公开群组、频道、机器人
      */
-    fun getTelegramModFromWeb(username: String): TelegramMod? {
+    override fun getTelegramModFromWeb(username: String): TelegramService.TelegramMod? {
         if (username.isEmpty()) return null
         val connect = Jsoup.connect("https://t.me/$username")
         val doc =
@@ -95,17 +51,17 @@ class Telegram(
 
         return when {
             isNotFound -> null
-            members.contains("online") -> TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
-            members.contains("subscriber") -> TelegramChannel(username, title, fixedDescription, fixedMembers)
-            members.toLowerCase().endsWith("bot") -> TelegramBot(username, title, fixedDescription)
-            else -> TelegramPerson(null, username, title, fixedDescription)
+            members.contains("online") -> TelegramService.TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
+            members.contains("subscriber") -> TelegramService.TelegramChannel(username, title, fixedDescription, fixedMembers)
+            members.toLowerCase().endsWith("bot") -> TelegramService.TelegramBot(username, title, fixedDescription)
+            else -> TelegramService.TelegramPerson(null, username, title, fixedDescription)
         }
     }
 
     /**
      * 群组
      */
-    fun getTelegramGroupFromChat(id: Long): TelegramGroup? {
+    override fun getTelegramGroupFromChat(id: Long): TelegramService.TelegramGroup? {
         return try {
             val getChat = GetChat(id)
             val chat = botProvider.send(getChat).chat()
@@ -114,21 +70,11 @@ class Telegram(
             val count = botProvider.send(getChatMembersCount).count()
 
             val link = if (chat.username() != null) null else chat.inviteLink()
-            TelegramGroup(id, chat.username(), link, chat.title(), chat.description(), count.toLong())
+            TelegramService.TelegramGroup(id, chat.username(), link, chat.title(), chat.description(), count.toLong())
         } catch (e: Throwable) {
             botProvider.sendErrorMessage(e)
             null
         }
     }
 
-}
-
-fun User.nick(): String {
-    val firstName =
-        if (firstName() == null) ""
-        else firstName()
-    val lastName =
-        if (lastName() == null) ""
-        else lastName()
-    return "$firstName$lastName"
 }

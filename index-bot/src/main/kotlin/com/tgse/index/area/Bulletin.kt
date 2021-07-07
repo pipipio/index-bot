@@ -1,8 +1,8 @@
 package com.tgse.index.area
 
-import com.tgse.index.datasource.RecordElastic
 import com.tgse.index.area.msgFactory.BulletinMsgFactory
-import com.tgse.index.provider.BotProvider
+import com.tgse.index.domain.service.RecordService
+import com.tgse.index.infrastructure.provider.BotProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -14,7 +14,7 @@ import org.springframework.stereotype.Service
 class Bulletin(
     private val botProvider: BotProvider,
     private val bulletinMsgFactory: BulletinMsgFactory,
-    private val recordElastic: RecordElastic,
+    private val recordService: RecordService,
     @Value("\${channel.bulletin.id}")
     private val bulletinChatId: Long
 ) {
@@ -28,19 +28,19 @@ class Bulletin(
     /**
      * 发布公告
      */
-    fun publish(record: RecordElastic.Record) {
+    fun publish(record: RecordService.Record) {
         val msg = bulletinMsgFactory.makeBulletinMsg(bulletinChatId, record)
         val response = botProvider.send(msg)
         // 补充公告消息ID
         val newRecord = record.copy(bulletinMessageId = response.message().messageId())
-        recordElastic.addRecord(newRecord)
+        recordService.addRecord(newRecord)
     }
 
     /**
      * 同步数据-更新公告
      */
     private fun subscribeUpdateRecord() {
-        recordElastic.updateRecordObservable.subscribe(
+        recordService.updateRecordObservable.subscribe(
             { record ->
                 try {
                     val msg = bulletinMsgFactory.makeBulletinMsg(bulletinChatId, record.bulletinMessageId!!, record)
@@ -65,7 +65,7 @@ class Bulletin(
      * 同步数据-删除公告
      */
     private fun subscribeDeleteRecord() {
-        recordElastic.deleteRecordObservable.subscribe(
+        recordService.deleteRecordObservable.subscribe(
             { (record, _) ->
                 try {
                     botProvider.sendDeleteMessage(bulletinChatId, record.bulletinMessageId!!)

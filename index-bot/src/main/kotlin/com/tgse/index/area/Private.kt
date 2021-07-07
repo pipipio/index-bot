@@ -6,14 +6,13 @@ import com.pengrad.telegrambot.request.*
 import com.tgse.index.area.execute.BlacklistExecute
 import com.tgse.index.area.execute.EnrollExecute
 import com.tgse.index.area.execute.RecordExecute
-import com.tgse.index.datasource.*
 import com.tgse.index.area.msgFactory.ListMsgFactory
 import com.tgse.index.area.msgFactory.MineMsgFactory
 import com.tgse.index.area.msgFactory.NormalMsgFactory
 import com.tgse.index.area.msgFactory.RecordMsgFactory
-import com.tgse.index.provider.BotProvider
-import com.tgse.index.provider.WatershedProvider
-import com.tgse.index.provider.WatershedProvider.*
+import com.tgse.index.infrastructure.provider.BotProvider
+import com.tgse.index.domain.repository.nick
+import com.tgse.index.domain.service.*
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.util.*
@@ -27,17 +26,17 @@ class Private(
     private val enrollExecute: EnrollExecute,
     private val recordExecute: RecordExecute,
     private val botProvider: BotProvider,
-    private val watershedProvider: WatershedProvider,
+    private val requestService: RequestService,
     private val normalMsgFactory: NormalMsgFactory,
     private val recordMsgFactory: RecordMsgFactory,
     private val mineMsgFactory: MineMsgFactory,
     private val listMsgFactory: ListMsgFactory,
-    private val enrollElastic: EnrollElastic,
-    private val recordElastic: RecordElastic,
-    private val userElastic: UserElastic,
-    private val blacklist: Blacklist,
-    private val telegram: Telegram,
-    private val awaitStatus: AwaitStatus
+    private val enrollService: EnrollService,
+    private val recordService: RecordService,
+    private val userService: UserService,
+    private val blackListService: BlackListService,
+    private val telegramService: TelegramService,
+    private val awaitStatusService: AwaitStatusService
 ) {
 
     private val logger = LoggerFactory.getLogger(Private::class.java)
@@ -48,19 +47,19 @@ class Private(
     }
 
     private fun subscribeUpdate() {
-        watershedProvider.requestObservable.subscribe(
+        requestService.requestObservable.subscribe(
             { request ->
                 try {
-                    if (request !is BotPrivateRequest) return@subscribe
+                    if (request !is RequestService.BotPrivateRequest) return@subscribe
                     // 输入状态
                     botProvider.sendTyping(request.chatId)
                     // 回执
                     when {
                         request.update.callbackQuery() != null -> executeByButton(request)
                         request.update.message().text().startsWith("/") -> executeByCommand(request)
-                        awaitStatus.getAwaitStatus(request.chatId) != null -> {
+                        awaitStatusService.getAwaitStatus(request.chatId) != null -> {
                             try {
-                                val callbackData = awaitStatus.getAwaitStatus(request.chatId)!!.callbackData
+                                val callbackData = awaitStatusService.getAwaitStatus(request.chatId)!!.callbackData
                                 if (callbackData.startsWith("approve") || callbackData.startsWith("enroll"))
                                     enrollExecute.executeByStatus(EnrollExecute.Type.Enroll, request)
                                 else if (callbackData.startsWith("update"))
@@ -68,7 +67,7 @@ class Private(
                                 else
                                     executeByStatus(EnrollExecute.Type.Enroll, request)
                             } catch (e: Throwable) {
-                                awaitStatus.clearAwaitStatus(request.chatId)
+                                awaitStatusService.clearAwaitStatus(request.chatId)
                             }
                         }
                         request.update.message().text().startsWith("@") -> executeByEnroll(request)
@@ -96,7 +95,7 @@ class Private(
     }
 
     private fun subscribeApprove() {
-        enrollElastic.submitApproveObservable.subscribe(
+        enrollService.submitApproveObservable.subscribe(
             { (enroll, manager, isPassed) ->
                 try {
                     val msg = recordMsgFactory.makeApproveResultMsg(enroll.createUser, enroll, isPassed)
@@ -117,7 +116,7 @@ class Private(
         )
     }
 
-    private fun executeByText(request: BotPrivateRequest) {
+    private fun executeByText(request: RequestService.BotPrivateRequest) {
         val keywords = request.update.message().text()
         val msg = listMsgFactory.makeListFirstPageMsg(request.chatId, keywords, 1) ?: normalMsgFactory.makeReplyMsg(
             request.chatId,
@@ -126,27 +125,27 @@ class Private(
         botProvider.send(msg)
     }
 
-    private fun executeByEnroll(request: BotPrivateRequest) {
+    private fun executeByEnroll(request: RequestService.BotPrivateRequest) {
         // 人员黑名单检测
-        val userBlack = blacklist.get(request.chatId)
+        val userBlack = blackListService.get(request.chatId)
         if (userBlack != null) {
             val user = request.update.message().from()
-            val telegramPerson = Telegram.TelegramPerson(request.chatId, user.username(), user.nick(), null)
+            val telegramPerson = TelegramService.TelegramPerson(request.chatId, user.username(), user.nick(), null)
             blacklistExecute.notify(request.chatId, telegramPerson)
             return
         }
         // 获取收录内容
         val username = request.update.message().text().replaceFirst("@", "").replaceFirst("https://t.me/", "")
-        val telegramMod = telegram.getTelegramModFromWeb(username)
+        val telegramMod = telegramService.getTelegramModFromWeb(username)
         // 收录对象黑名单检测
-        val recordBlack = blacklist.get(username)
+        val recordBlack = blackListService.get(username)
         if (recordBlack != null && telegramMod != null) {
             blacklistExecute.notify(request.chatId, telegramMod)
             return
         }
         // 检测是否已有提交或已收录
-        val enrollExist = enrollElastic.getSubmittedEnrollByUsername(username)
-        val record = recordElastic.getRecordByUsername(username)
+        val enrollExist = enrollService.getSubmittedEnrollByUsername(username)
+        val record = recordService.getRecordByUsername(username)
         if (enrollExist != null || record != null) {
             val msg = normalMsgFactory.makeReplyMsg(request.chatId, "exist")
             botProvider.send(msg)
@@ -154,13 +153,13 @@ class Private(
         }
         // 回执
         val sendMessage = when (telegramMod) {
-            is Telegram.TelegramGroup -> {
+            is TelegramService.TelegramGroup -> {
                 normalMsgFactory.makeReplyMsg(request.chatId, "enroll-need-join-group")
             }
-            is Telegram.TelegramChannel -> {
-                val enroll = EnrollElastic.Enroll(
+            is TelegramService.TelegramChannel -> {
+                val enroll = EnrollService.Enroll(
                     UUID.randomUUID().toString(),
-                    Telegram.TelegramModType.Channel,
+                    TelegramService.TelegramModType.Channel,
                     null,
                     telegramMod.title,
                     telegramMod.description,
@@ -175,14 +174,14 @@ class Private(
                     false,
                     null
                 )
-                val createEnroll = enrollElastic.addEnroll(enroll)
+                val createEnroll = enrollService.addEnroll(enroll)
                 if (!createEnroll) return
                 recordMsgFactory.makeEnrollMsg(request.chatId, enroll)
             }
-            is Telegram.TelegramBot -> {
-                val enroll = EnrollElastic.Enroll(
+            is TelegramService.TelegramBot -> {
+                val enroll = EnrollService.Enroll(
                     UUID.randomUUID().toString(),
-                    Telegram.TelegramModType.Bot,
+                    TelegramService.TelegramModType.Bot,
                     null,
                     telegramMod.title,
                     telegramMod.description,
@@ -197,7 +196,7 @@ class Private(
                     false,
                     null
                 )
-                val createEnroll = enrollElastic.addEnroll(enroll)
+                val createEnroll = enrollService.addEnroll(enroll)
                 if (!createEnroll) return
                 recordMsgFactory.makeEnrollMsg(request.chatId, enroll)
             }
@@ -208,7 +207,7 @@ class Private(
         botProvider.send(sendMessage)
     }
 
-    private fun executeByCommand(request: BotPrivateRequest) {
+    private fun executeByCommand(request: RequestService.BotPrivateRequest) {
         // 获取命令内容
         val cmd = request.update.message().text().replaceFirst("/", "").replace("@${botProvider.username}", "")
         // 回执
@@ -221,7 +220,7 @@ class Private(
             cmd == "setting" -> normalMsgFactory.makeReplyMsg(request.chatId, "only-group")
             cmd == "help" -> normalMsgFactory.makeReplyMsg(request.chatId, "help-private")
             cmd == "cancel" -> {
-                awaitStatus.clearAwaitStatus(request.chatId)
+                awaitStatusService.clearAwaitStatus(request.chatId)
                 normalMsgFactory.makeReplyMsg(request.chatId, "cancel")
             }
             else -> normalMsgFactory.makeReplyMsg(request.chatId, "can-not-understand")
@@ -231,17 +230,17 @@ class Private(
         botProvider.send(sendMessage)
     }
 
-    private fun executeBySuperCommand(request: BotPrivateRequest): SendMessage {
+    private fun executeBySuperCommand(request: RequestService.BotPrivateRequest): SendMessage {
         return try {
             val recordUUID = request.update.message().text().replaceFirst("/start ", "")
-            val record = recordElastic.getRecord(recordUUID)!!
+            val record = recordService.getRecord(recordUUID)!!
             recordMsgFactory.makeRecordMsg(request.chatId, record)
         } catch (e: Throwable) {
             normalMsgFactory.makeReplyMsg(request.chatId, "start")
         }
     }
 
-    private fun executeByButton(request: BotPrivateRequest) {
+    private fun executeByButton(request: RequestService.BotPrivateRequest) {
         val answer = AnswerCallbackQuery(request.update.callbackQuery().id())
         botProvider.send(answer)
 
@@ -267,25 +266,25 @@ class Private(
                 botProvider.send(msg)
             }
             callbackData.startsWith("feedback") -> {
-                awaitStatus.setAwaitStatus(request.chatId, AwaitStatus.Await(request.messageId!!, callbackData))
+                awaitStatusService.setAwaitStatus(request.chatId, AwaitStatusService.Await(request.messageId!!, callbackData))
                 val msg = normalMsgFactory.makeReplyMsg(request.chatId, "feedback-start")
                 botProvider.send(msg)
             }
         }
     }
 
-    fun executeByStatus(type: EnrollExecute.Type, request: BotRequest) {
-        val statusCallbackData = awaitStatus.getAwaitStatus(request.chatId!!)!!.callbackData
+    fun executeByStatus(type: EnrollExecute.Type, request: RequestService.BotRequest) {
+        val statusCallbackData = awaitStatusService.getAwaitStatus(request.chatId!!)!!.callbackData
         when {
             statusCallbackData.startsWith("feedback:") -> {
                 val recordUUID = statusCallbackData.replace("feedback:", "")
-                val record = recordElastic.getRecord(recordUUID)!!
+                val record = recordService.getRecord(recordUUID)!!
                 val user = request.update.message().from()
                 val content = request.update.message().text()
                 val feedback = Triple(record, user, content)
-                watershedProvider.feedbackSubject.onNext(feedback)
+                requestService.feedbackSubject.onNext(feedback)
                 // 清除状态
-                awaitStatus.clearAwaitStatus(request.chatId!!)
+                awaitStatusService.clearAwaitStatus(request.chatId!!)
                 val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "feedback-finish")
                 botProvider.send(msg)
             }
@@ -294,7 +293,7 @@ class Private(
 
     private fun footprint(user: User) {
         try {
-            userElastic.footprint(user)
+            userService.footprint(user.id().toLong())
         } catch (e: Throwable) {
             botProvider.sendErrorMessage(e)
             e.printStackTrace()

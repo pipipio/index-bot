@@ -1,4 +1,4 @@
-package com.tgse.index.provider
+package com.tgse.index.infrastructure.provider
 
 import com.google.common.util.concurrent.MoreExecutors
 import com.pengrad.telegrambot.TelegramBot

@@ -6,18 +6,19 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup
 import com.pengrad.telegrambot.request.SendMessage
-import com.tgse.index.datasource.*
-import com.tgse.index.provider.BotProvider
+import com.tgse.index.domain.repository.nick
+import com.tgse.index.domain.service.*
+import com.tgse.index.infrastructure.provider.BotProvider
 import org.springframework.stereotype.Component
 
 @Component
 class RecordMsgFactory(
-    private val type: Type,
-    override val reply: Reply,
+    private val classificationService: ClassificationService,
+    override val replyService: ReplyService,
     override val botProvider: BotProvider
-) : BaseMsgFactory(reply, botProvider) {
+) : BaseMsgFactory(replyService, botProvider) {
 
-    fun makeEnrollMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
+    fun makeEnrollMsg(chatId: Long, enroll: EnrollService.Enroll): SendMessage {
         val detail = makeRecordDetail(enroll)
         val keyboard = makeEnrollKeyboardMarkup(enroll.uuid)
         return SendMessage(chatId, detail)
@@ -26,14 +27,14 @@ class RecordMsgFactory(
             .replyMarkup(keyboard)
     }
 
-    fun makeEnrollChangeClassificationMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
+    fun makeEnrollChangeClassificationMsg(chatId: Long, enroll: EnrollService.Enroll): SendMessage {
         val detail = makeRecordDetail(enroll)
         val keyboard = makeInlineKeyboardMarkup(enroll.uuid,"enroll-class")
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeApproveMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
+    fun makeApproveMsg(chatId: Long, enroll: EnrollService.Enroll): SendMessage {
         val detail = makeApproveRecordDetail(enroll)
         val keyboard = makeApproveKeyboardMarkup(enroll.uuid)
         return SendMessage(chatId, detail)
@@ -42,14 +43,14 @@ class RecordMsgFactory(
             .disableWebPagePreview(true)
     }
 
-    fun makeApproveChangeClassificationMsg(chatId: Long, enroll: EnrollElastic.Enroll): SendMessage {
+    fun makeApproveChangeClassificationMsg(chatId: Long, enroll: EnrollService.Enroll): SendMessage {
         val detail = makeApproveRecordDetail(enroll)
         val keyboard = makeInlineKeyboardMarkup(enroll.uuid,"enroll-class")
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeRecordChangeClassificationMsg(chatId: Long, record: RecordElastic.Record): SendMessage {
+    fun makeRecordChangeClassificationMsg(chatId: Long, record: RecordService.Record): SendMessage {
         val detail = makeRecordDetail(record)
         val keyboard = makeInlineKeyboardMarkup(record.uuid,"record-class")
         val msg = SendMessage(chatId, detail)
@@ -58,7 +59,7 @@ class RecordMsgFactory(
 
     fun makeApproveResultMsg(
         chatId: Long,
-        enroll: EnrollElastic.Enroll,
+        enroll: EnrollService.Enroll,
         manager: User,
         isPassed: Boolean
     ): SendMessage {
@@ -69,13 +70,13 @@ class RecordMsgFactory(
         else msg.parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeApproveResultMsg(chatId: Long, enroll: EnrollElastic.Enroll, isPassed: Boolean): SendMessage {
+    fun makeApproveResultMsg(chatId: Long, enroll: EnrollService.Enroll, isPassed: Boolean): SendMessage {
         val detail = makeApproveResultDetail(enroll, isPassed)
         val msg = SendMessage(chatId, detail)
         return msg.parseMode(ParseMode.HTML).disableWebPagePreview(true)
     }
 
-    fun makeRecordMsg(chatId: Long, record: RecordElastic.Record): SendMessage {
+    fun makeRecordMsg(chatId: Long, record: RecordService.Record): SendMessage {
         val detail = makeRecordDetail(record)
         val keyboard =
             if (chatId == record.createUser) makeUpdateKeyboardMarkup(record.uuid)
@@ -83,7 +84,7 @@ class RecordMsgFactory(
         return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    fun makeFeedbackMsg(chatId: Long, record: RecordElastic.Record): SendMessage {
+    fun makeFeedbackMsg(chatId: Long, record: RecordService.Record): SendMessage {
         val detail = makeRecordDetail(record)
         val keyboard = makeManageKeyboardMarkup(record.uuid)
         return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
@@ -93,11 +94,11 @@ class RecordMsgFactory(
         return EditMessageReplyMarkup(chatId, messageId).replyMarkup(InlineKeyboardMarkup())
     }
 
-    private fun makeApproveRecordDetail(enroll: EnrollElastic.Enroll): String {
+    private fun makeApproveRecordDetail(enroll: EnrollService.Enroll): String {
         return makeRecordDetail(enroll) + "\n<b>提交者</b>： ${enroll.createUserNick}\n"
     }
 
-    private fun makeApproveResultDetail(enroll: EnrollElastic.Enroll, checker: User, isPassed: Boolean): String {
+    private fun makeApproveResultDetail(enroll: EnrollService.Enroll, checker: User, isPassed: Boolean): String {
         val result = if (isPassed) "通过" else "未通过"
         return makeRecordDetail(enroll) +
                 "\n<b>提交者</b>： ${enroll.createUserNick}" +
@@ -105,7 +106,7 @@ class RecordMsgFactory(
                 "\n<b>审核结果</b>： $result\n"
     }
 
-    private fun makeApproveResultDetail(enroll: EnrollElastic.Enroll, isPassed: Boolean): String {
+    private fun makeApproveResultDetail(enroll: EnrollService.Enroll, isPassed: Boolean): String {
         val result = if (isPassed) "通过" else "未通过"
         return makeRecordDetail(enroll) +
                 "\n<b>审核结果</b>： $result\n"
@@ -117,10 +118,10 @@ class RecordMsgFactory(
         // 将多个类型按照countInRow拆分为多行
         var counter = 0
         val buttonLines = mutableListOf<Array<InlineKeyboardButton>>()
-        while (counter < type.types.size) {
+        while (counter < classificationService.classifications.size) {
             var endOfIndex = counter + countInRow
-            endOfIndex = if (endOfIndex <= type.types.size) endOfIndex else type.types.size
-            val row = type.types.copyOfRange(counter, endOfIndex)
+            endOfIndex = if (endOfIndex <= classificationService.classifications.size) endOfIndex else classificationService.classifications.size
+            val row = classificationService.classifications.copyOfRange(counter, endOfIndex)
             val buttons = row.map {
                 InlineKeyboardButton(it).callbackData("$oper:$it&$id")
             }.toTypedArray()
@@ -146,23 +147,23 @@ class RecordMsgFactory(
         )
     }
 
-    private fun makeJoinBlacklistKeyboardMarkup(enroll: EnrollElastic.Enroll): InlineKeyboardMarkup {
+    private fun makeJoinBlacklistKeyboardMarkup(enroll: EnrollService.Enroll): InlineKeyboardMarkup {
         val type = when (enroll.type) {
-            Telegram.TelegramModType.Channel -> "频道"
-            Telegram.TelegramModType.Group -> "群组"
-            Telegram.TelegramModType.Bot -> "机器人"
-            Telegram.TelegramModType.Person -> throw RuntimeException("收录对象为用户")
+            TelegramService.TelegramModType.Channel -> "频道"
+            TelegramService.TelegramModType.Group -> "群组"
+            TelegramService.TelegramModType.Bot -> "机器人"
+            TelegramService.TelegramModType.Person -> throw RuntimeException("收录对象为用户")
         }
         return InlineKeyboardMarkup(
             arrayOf(
                 run {
-                    val callbackData = "blacklist:join&${Blacklist.BlackType.Record}&${enroll.uuid}"
+                    val callbackData = "blacklist:join&${BlackListService.BlackType.Record}&${enroll.uuid}"
                     InlineKeyboardButton("将${type}加入黑名单").callbackData(callbackData)
                 }
             ),
             arrayOf(
                 run {
-                    val callbackData = "blacklist:join&${Blacklist.BlackType.User}&${enroll.uuid}"
+                    val callbackData = "blacklist:join&${BlackListService.BlackType.User}&${enroll.uuid}"
                     InlineKeyboardButton("将提交者加入黑名单").callbackData(callbackData)
                 }
             )

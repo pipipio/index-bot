@@ -5,16 +5,18 @@ import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup
 import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.MismatchException
-import com.tgse.index.datasource.*
-import com.tgse.index.provider.BotProvider
+import com.tgse.index.domain.service.BlackListService
+import com.tgse.index.infrastructure.provider.BotProvider
+import com.tgse.index.domain.service.ClassificationService
+import com.tgse.index.domain.service.ReplyService
 import org.springframework.stereotype.Component
 
 @Component
 class NormalMsgFactory(
-    private val type: Type,
-    override val reply: Reply,
+    private val classificationService: ClassificationService,
+    override val replyService: ReplyService,
     override val botProvider: BotProvider
-) : BaseMsgFactory(reply, botProvider) {
+) : BaseMsgFactory(replyService, botProvider) {
 
     fun makeClearMarkupMsg(chatId: Long, messageId: Int): EditMessageReplyMarkup {
         return EditMessageReplyMarkup(chatId, messageId).replyMarkup(InlineKeyboardMarkup())
@@ -29,7 +31,7 @@ class NormalMsgFactory(
     ): SendMessage {
         return SendMessage(
             chatId,
-            reply.message["statistics-daily"]!!
+            replyService.messages["statistics-daily"]!!
                 .replace("\\{dailyIncreaseOfUser\\}".toRegex(), dailyIncreaseOfUser.toString())
                 .replace("\\{dailyActiveOfUser\\}".toRegex(), dailyActiveOfUser.toString())
                 .replace("\\{countOfUser\\}".toRegex(), countOfUser.toString())
@@ -39,18 +41,18 @@ class NormalMsgFactory(
 
     fun makeListReplyMsg(chatId: Long): SendMessage {
         val keyboard = makeReplyKeyboardMarkup()
-        return SendMessage(chatId, reply.message["list"]!!).replyMarkup(keyboard)
+        return SendMessage(chatId, replyService.messages["list"]!!).replyMarkup(keyboard)
     }
 
     fun makeBlacklistJoinedReplyMsg(
         chatId: Long,
         replyType: String,
         manager: String,
-        black: Blacklist.Black
+        black: BlackListService.Black
     ): SendMessage {
         return SendMessage(
             chatId,
-            reply.message[replyType]!!
+            replyService.messages[replyType]!!
                 .replace("\\{manager\\}".toRegex(), manager)
                 .replace("\\{black\\}".toRegex(), black.displayName)
         )
@@ -59,14 +61,14 @@ class NormalMsgFactory(
     fun makeBlacklistExistReplyMsg(chatId: Long, replyType: String, type: String): SendMessage {
         return SendMessage(
             chatId,
-            reply.message[replyType]!!.replace("\\{type\\}".toRegex(), type)
+            replyService.messages[replyType]!!.replace("\\{type\\}".toRegex(), type)
         )
     }
 
     fun makeRemoveRecordReplyMsg(chatId: Long, manager: String, recordTitle: String): SendMessage {
         return SendMessage(
             chatId,
-            reply.message["remove-record-manager"]!!
+            replyService.messages["remove-record-manager"]!!
                 .replace("\\{manager\\}".toRegex(), manager)
                 .replace("\\{record\\}".toRegex(), recordTitle)
         )
@@ -75,7 +77,7 @@ class NormalMsgFactory(
     fun makeRemoveRecordReplyMsg(chatId: Long, recordTitle: String): SendMessage {
         return SendMessage(
             chatId,
-            reply.message["remove-record-user"]!!
+            replyService.messages["remove-record-user"]!!
                 .replace("\\{record\\}".toRegex(), recordTitle)
         )
     }
@@ -93,10 +95,10 @@ class NormalMsgFactory(
         // 将多个类型按照countInRow拆分为多行
         var counter = 0
         val rows = mutableListOf<Array<String>>()
-        while (counter < type.types.size) {
+        while (counter < classificationService.classifications.size) {
             var endOfIndex = counter + countInRow
-            endOfIndex = if (endOfIndex <= type.types.size) endOfIndex else type.types.size
-            val row = type.types.copyOfRange(counter, endOfIndex)
+            endOfIndex = if (endOfIndex <= classificationService.classifications.size) endOfIndex else classificationService.classifications.size
+            val row = classificationService.classifications.copyOfRange(counter, endOfIndex)
             counter += countInRow
             rows.add(row)
         }

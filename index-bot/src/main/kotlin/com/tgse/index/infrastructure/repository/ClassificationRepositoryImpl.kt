@@ -1,43 +1,42 @@
-package com.tgse.index.datasource
+package com.tgse.index.infrastructure.repository
 
+import com.tgse.index.domain.repository.ClassificationRepository
 import org.dom4j.Document
 import org.dom4j.Element
 import org.dom4j.io.SAXReader
-import org.springframework.stereotype.Component
+import org.springframework.stereotype.Repository
 import java.io.FileOutputStream
 import java.nio.file.Path
 
-/**
- * 分类
- */
-@Component
-class Type {
+@Repository
+class ClassificationRepositoryImpl : ClassificationRepository {
 
-    private val path = Path.of("lang/type.xml")
+    private val path = Path.of("lang/classification.xml")
     private lateinit var typesOnDisk: MutableList<String>
-    val types: Array<String>
+
+    override val classifications: Array<String>
         get() = typesOnDisk.toTypedArray()
 
     init {
         read()
     }
 
-    fun add(type: String): Boolean {
-        if (typesOnDisk.contains(type)) return true
-        typesOnDisk.add(type)
+    override fun contains(classification: String): Boolean {
+        return typesOnDisk.contains(classification)
+    }
+
+    override fun add(classification: String): Boolean {
+        if (typesOnDisk.contains(classification)) return true
+        typesOnDisk.add(classification)
         write()
         return true
     }
 
-    fun remove(type: String): Boolean {
-        if (!typesOnDisk.contains(type)) return true
-        typesOnDisk.remove(type)
+    override fun remove(classification: String): Boolean {
+        if (!typesOnDisk.contains(classification)) return true
+        typesOnDisk.remove(classification)
         write()
         return true
-    }
-
-    fun contains(type: String): Boolean {
-        return typesOnDisk.contains(type)
     }
 
     private fun write() {
@@ -46,11 +45,11 @@ class Type {
             it.write(
                 """
                 <?xml version="1.0" encoding="UTF-8"?>
-                <type>
-                    <tp>
+                <classification>
+                    <content>
                         ${typesOnDisk.joinToString(",")}
-                    </tp>
-                </type>
+                    </content>
+                </classification>
                 """.trimIndent()
             )
         }

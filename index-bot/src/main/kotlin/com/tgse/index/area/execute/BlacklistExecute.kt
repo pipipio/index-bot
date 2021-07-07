@@ -1,12 +1,12 @@
 package com.tgse.index.area.execute
 
-import com.tgse.index.datasource.Blacklist
-import com.tgse.index.datasource.EnrollElastic
-import com.tgse.index.datasource.Telegram
-import com.tgse.index.datasource.nick
 import com.tgse.index.area.msgFactory.NormalMsgFactory
-import com.tgse.index.provider.BotProvider
-import com.tgse.index.provider.WatershedProvider
+import com.tgse.index.domain.repository.nick
+import com.tgse.index.infrastructure.provider.BotProvider
+import com.tgse.index.domain.service.BlackListService
+import com.tgse.index.domain.service.EnrollService
+import com.tgse.index.domain.service.RequestService
+import com.tgse.index.domain.service.TelegramService
 import org.springframework.stereotype.Component
 import java.util.*
 
@@ -14,28 +14,28 @@ import java.util.*
 class BlacklistExecute(
     private val botProvider: BotProvider,
     private val msgFactory: NormalMsgFactory,
-    private val enrollElastic: EnrollElastic,
-    private val blacklist: Blacklist,
+    private val enrollService: EnrollService,
+    private val blackListService: BlackListService
 ) {
 
-    fun executeByBlacklistButton(request: WatershedProvider.BotRequest) {
+    fun executeByBlacklistButton(request: RequestService.BotRequest) {
         val manager = request.update.callbackQuery().from().nick()
 
         val callbackData = request.update.callbackQuery().data()
         val callbackDataVal = callbackData.replace("blacklist:", "").split("&")
         val oper = callbackDataVal[0]
-        val type = Blacklist.BlackType.valueOf(callbackDataVal[1])
+        val type = BlackListService.BlackType.valueOf(callbackDataVal[1])
         val enrollUUID = callbackDataVal[2]
-        val enroll = enrollElastic.getEnroll(enrollUUID)!!
+        val enroll = enrollService.getEnroll(enrollUUID)!!
 
         // 检查是否已在黑名单
         val blackExist = when (type) {
-            Blacklist.BlackType.Record -> {
-                if (enroll.chatId != null) blacklist.get(enroll.chatId)
-                else blacklist.get(enroll.username!!)
+            BlackListService.BlackType.Record -> {
+                if (enroll.chatId != null) blackListService.get(enroll.chatId)
+                else blackListService.get(enroll.username!!)
             }
-            Blacklist.BlackType.User -> {
-                blacklist.get(enroll.createUser)
+            BlackListService.BlackType.User -> {
+                blackListService.get(enroll.createUser)
             }
         }
         when (oper) {
@@ -43,36 +43,36 @@ class BlacklistExecute(
             "join" -> {
                 // 若不存在则添加至黑名单，若存在则升级黑名单
                 val black = if (blackExist == null) {
-                    val newBlack = Blacklist.Black(
+                    val newBlack = BlackListService.Black(
                         UUID.randomUUID().toString(),
                         type,
                         when (type) {
-                            Blacklist.BlackType.Record -> enroll.title
-                            Blacklist.BlackType.User -> enroll.createUserNick
+                            BlackListService.BlackType.Record -> enroll.title
+                            BlackListService.BlackType.User -> enroll.createUserNick
                         },
                         1,
                         when (type) {
-                            Blacklist.BlackType.Record -> enroll.chatId
-                            Blacklist.BlackType.User -> enroll.createUser
+                            BlackListService.BlackType.Record -> enroll.chatId
+                            BlackListService.BlackType.User -> enroll.createUser
                         },
                         when (type) {
-                            Blacklist.BlackType.Record -> enroll.username
-                            Blacklist.BlackType.User -> null
+                            BlackListService.BlackType.Record -> enroll.username
+                            BlackListService.BlackType.User -> null
                         },
                         Date().time
                     )
-                    blacklist.add(newBlack)
+                    blackListService.add(newBlack)
                     newBlack
                 } else {
                     val newBlack = blackExist.copy(
                         displayName = when (type) {
-                            Blacklist.BlackType.Record -> enroll.title
-                            Blacklist.BlackType.User -> enroll.createUserNick
+                            BlackListService.BlackType.Record -> enroll.title
+                            BlackListService.BlackType.User -> enroll.createUserNick
                         },
                         level = blackExist.level + 1,
                         unfreezeTime = calcUnfreezeTime(blackExist.level + 1)
                     )
-                    blacklist.update(newBlack)
+                    blackListService.update(newBlack)
                     newBlack
                 }
                 val msg = msgFactory.makeBlacklistJoinedReplyMsg(request.chatId!!, "blacklist-join", manager, black)
@@ -81,23 +81,23 @@ class BlacklistExecute(
             // 移出黑名单
             "left" -> {
                 if (blackExist == null) return
-                blacklist.delete(blackExist.uuid)
+                blackListService.delete(blackExist.uuid)
                 val msg = msgFactory.makeBlacklistJoinedReplyMsg(request.chatId!!, "blacklist-left", manager, blackExist)
                 botProvider.send(msg)
             }
         }
     }
 
-    fun notify(chatId: Long, telegramMod: Telegram.TelegramMod) {
+    fun notify(chatId: Long, telegramMod: TelegramService.TelegramMod) {
         val type = when (telegramMod) {
-            is Telegram.TelegramGroup -> "群组"
-            is Telegram.TelegramChannel -> "频道"
-            is Telegram.TelegramBot -> "机器人"
-            is Telegram.TelegramPerson -> "用户"
+            is TelegramService.TelegramGroup -> "群组"
+            is TelegramService.TelegramChannel -> "频道"
+            is TelegramService.TelegramBot -> "机器人"
+            is TelegramService.TelegramPerson -> "用户"
             else -> throw RuntimeException("不应执行到此处")
         }
         val msg =
-            if (telegramMod is Telegram.TelegramPerson)
+            if (telegramMod is TelegramService.TelegramPerson)
                 msgFactory.makeBlacklistExistReplyMsg(chatId, "blacklist-exist-user", type)
             else
                 msgFactory.makeBlacklistExistReplyMsg(chatId, "blacklist-exist-record", type)

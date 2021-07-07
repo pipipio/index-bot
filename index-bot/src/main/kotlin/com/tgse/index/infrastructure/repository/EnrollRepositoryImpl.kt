@@ -1,9 +1,10 @@
-package com.tgse.index.datasource
+package com.tgse.index.infrastructure.repository
 
 import com.pengrad.telegrambot.model.User
-import com.tgse.index.provider.ElasticsearchProvider
-import io.reactivex.Observable
-import io.reactivex.subjects.BehaviorSubject
+import com.tgse.index.domain.repository.EnrollRepository
+import com.tgse.index.domain.service.EnrollService
+import com.tgse.index.domain.service.TelegramService
+import com.tgse.index.infrastructure.provider.ElasticsearchProvider
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -15,15 +16,12 @@ import org.elasticsearch.index.query.BoolQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.SortOrder
-import org.springframework.stereotype.Component
+import org.springframework.stereotype.Repository
 
-/**
- * 数据引擎
- */
-@Component
-class EnrollElastic(
+@Repository
+class EnrollRepositoryImpl(
     private val elasticsearchProvider: ElasticsearchProvider
-) {
+) : EnrollRepository {
 
     private val index = "enroll"
 
@@ -37,36 +35,8 @@ class EnrollElastic(
         elasticsearchProvider.createIndex(index)
     }
 
-    data class Enroll(
-        val uuid: String,
-        val type: Telegram.TelegramModType,
-        val chatId: Long?,
-        val title: String,
-        val description: String?,
-        /**
-         * 包含#
-         * 如：#apple #iphone
-         */
-        val tags: Collection<String>?,
-        val classification: String?,
-        val username: String?,
-        val link: String?,
-        val members: Long?,
-        val createTime: Long,
-        val createUser: Long,
-        val createUserNick: String,
-        val isSubmit: Boolean,
-        val approve: Boolean?
-    )
-
-    private val submitEnrollSubject = BehaviorSubject.create<Enroll>()
-    val submitEnrollObservable: Observable<Enroll> = submitEnrollSubject.distinct()
-
-    private val submitApproveSubject = BehaviorSubject.create<Triple<Enroll, User, Boolean>>()
-    val submitApproveObservable: Observable<Triple<Enroll, User, Boolean>> = submitApproveSubject.distinct()
-
-    fun searchEnrolls(user: User, from: Int, size: Int): Pair<MutableList<Enroll>, Long> {
-        try{
+    override fun searchEnrolls(user: User, from: Int, size: Int): Pair<MutableList<EnrollService.Enroll>, Long> {
+        try {
             val searchRequest = SearchRequest(index)
             val searchSourceBuilder = SearchSourceBuilder()
             val creatorMatch = QueryBuilders.matchQuery("createUser", user.id())
@@ -77,7 +47,7 @@ class EnrollElastic(
             searchRequest.source(searchSourceBuilder)
             val response = elasticsearchProvider.search(searchRequest)
 
-            val enrolls = arrayListOf<Enroll>()
+            val enrolls = arrayListOf<EnrollService.Enroll>()
             response.hits.hits.forEach {
                 val enroll = generateEnrollFromHashMap(it.id, it.sourceAsMap)
                 enrolls.add(enroll)
@@ -89,70 +59,48 @@ class EnrollElastic(
         }
     }
 
-    fun addEnroll(enroll: Enroll): Boolean {
+    override fun addEnroll(enroll: EnrollService.Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
         val indexRequest = IndexRequest(index)
         indexRequest.id(enroll.uuid).source(builder)
         return elasticsearchProvider.indexDocument(indexRequest)
     }
 
-    fun updateEnroll(enroll: Enroll): Boolean {
-        val sourceEnroll = getEnroll(enroll.uuid)!!
-        if (sourceEnroll.isSubmit != enroll.isSubmit) throw RuntimeException("此函数不允许修改状态")
-        return updateEnrollDetail(enroll)
-    }
-
-    fun submitEnroll(uuid: String) {
-        val enroll = getEnroll(uuid)!!
-        if (enroll.isSubmit) return
-        val newEnroll = enroll.copy(isSubmit = true)
-        updateEnrollDetail(newEnroll)
-        submitEnrollSubject.onNext(newEnroll)
-    }
-
-    private fun updateEnrollDetail(enroll: Enroll): Boolean {
+    override fun updateEnroll(enroll: EnrollService.Enroll): Boolean {
         val builder = generateXContentFromEnroll(enroll)
         val updateRequest = UpdateRequest(index, enroll.uuid).doc(builder)
         return elasticsearchProvider.updateDocument(updateRequest)
     }
 
-    fun approveEnroll(uuid: String, manager: User, isPassed: Boolean) {
-        val enroll = getEnroll(uuid)!!
-        val newEnroll = enroll.copy(approve = isPassed)
-        updateEnroll(newEnroll)
-        val triple = Triple(newEnroll, manager, isPassed)
-        submitApproveSubject.onNext(triple)
-    }
-
-    fun deleteEnroll(uuid: String) {
+    override fun deleteEnroll(uuid: String) {
         val deleteRequest = DeleteRequest(index, uuid)
         elasticsearchProvider.deleteDocument(deleteRequest)
     }
 
-    fun getEnroll(uuid: String): Enroll? {
+    override fun getEnroll(uuid: String): EnrollService.Enroll? {
         val request = GetRequest(index, uuid)
         val response = elasticsearchProvider.getDocument(request)
         if (!response.isExists) return null
         return generateEnrollFromHashMap(uuid, response.sourceAsMap)
     }
 
-    fun getSubmittedEnrollByUsername(username: String): Enroll? {
-        val usernameMatch = QueryBuilders.matchQuery("username",username)
-        val statusMatch = QueryBuilders.matchQuery("isSubmit",true)
+    override fun getSubmittedEnroll(username: String): EnrollService.Enroll? {
+        val usernameMatch = QueryBuilders.matchQuery("username", username)
+        val statusMatch = QueryBuilders.matchQuery("isSubmit", true)
         val passMatch = QueryBuilders.existsQuery("approve")
         val queryBuilder = QueryBuilders.boolQuery().must(usernameMatch).must(statusMatch).mustNot(passMatch)
         return getSubmittedEnrollByQuery(queryBuilder)
     }
 
-    fun getSubmittedEnrollByChatId(chatId: Long): Enroll? {
+    override fun getSubmittedEnroll(chatId: Long): EnrollService.Enroll? {
         val chatIdMatch = QueryBuilders.matchQuery("chatId", chatId)
-        val submitStatusMatch = QueryBuilders.matchQuery("isSubmit",true)
+        val submitStatusMatch = QueryBuilders.matchQuery("isSubmit", true)
         val passMatch = QueryBuilders.existsQuery("approve")
         val queryBuilder = QueryBuilders.boolQuery().must(chatIdMatch).must(submitStatusMatch).mustNot(passMatch)
         return getSubmittedEnrollByQuery(queryBuilder)
     }
 
-    private fun getSubmittedEnrollByQuery(queryBuilder: BoolQueryBuilder): Enroll? {
+    private fun getSubmittedEnrollByQuery(queryBuilder: BoolQueryBuilder): EnrollService.Enroll? {
         val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.query(queryBuilder)
@@ -162,7 +110,7 @@ class EnrollElastic(
         else generateEnrollFromHashMap(response.hits.hits[0].id, response.hits.hits[0].sourceAsMap)
     }
 
-    private fun generateXContentFromEnroll(enroll: Enroll): XContentBuilder {
+    private fun generateXContentFromEnroll(enroll: EnrollService.Enroll): XContentBuilder {
         val tagsString =
             if (enroll.tags == null) null
             else enroll.tags.joinToString(" ")
@@ -186,16 +134,16 @@ class EnrollElastic(
         return builder
     }
 
-    private fun generateEnrollFromHashMap(uuid: String, map: MutableMap<String, Any?>): Enroll {
+    private fun generateEnrollFromHashMap(uuid: String, map: MutableMap<String, Any?>): EnrollService.Enroll {
         val tagsString = map["tags"].toString()
         val tags = when {
             tagsString.contains(" ") -> tagsString.split(" ")
             tagsString == "null" -> null
             else -> listOf(tagsString)
         }
-        return Enroll(
+        return EnrollService.Enroll(
             uuid,
-            Telegram.TelegramModType.valueOf(map["type"] as String),
+            TelegramService.TelegramModType.valueOf(map["type"] as String),
             when (map["chatId"]) {
                 is Int -> (map["chatId"] as Int).toLong()
                 is Long -> map["chatId"] as Long

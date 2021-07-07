@@ -1,25 +1,26 @@
 package com.tgse.index.area.msgFactory
 
 import com.pengrad.telegrambot.request.SendMessage
-import com.tgse.index.datasource.*
-import com.tgse.index.provider.BotProvider
+import com.tgse.index.domain.service.BlackListService
+import com.tgse.index.domain.service.ReplyService
+import com.tgse.index.infrastructure.provider.BotProvider
 import org.springframework.stereotype.Component
 
 @Component
 class BlacklistMsgFactory(
-    override val reply: Reply,
+    override val replyService: ReplyService,
     override val botProvider: BotProvider
-) : BaseMsgFactory(reply, botProvider) {
+) : BaseMsgFactory(replyService, botProvider) {
 
     fun makeBlacklistJoinedReplyMsg(
         chatId: Long,
         replyType: String,
         manager: String,
-        black: Blacklist.Black
+        black: BlackListService.Black
     ): SendMessage {
         return SendMessage(
             chatId,
-            reply.message[replyType]!!
+            replyService.messages[replyType]!!
                 .replace("\\{manager\\}".toRegex(), manager)
                 .replace("\\{black\\}".toRegex(), black.displayName)
         )
@@ -28,7 +29,7 @@ class BlacklistMsgFactory(
     fun makeBlacklistExistReplyMsg(chatId: Long, replyType: String, type: String): SendMessage {
         return SendMessage(
             chatId,
-            reply.message[replyType]!!.replace("\\{type\\}".toRegex(), type)
+            replyService.messages[replyType]!!.replace("\\{type\\}".toRegex(), type)
         )
     }
 

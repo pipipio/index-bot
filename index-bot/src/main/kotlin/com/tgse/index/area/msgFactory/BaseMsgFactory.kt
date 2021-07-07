@@ -1,24 +1,27 @@
 package com.tgse.index.area.msgFactory
 
 import com.pengrad.telegrambot.request.SendMessage
-import com.tgse.index.datasource.*
-import com.tgse.index.provider.BotProvider
+import com.tgse.index.infrastructure.provider.BotProvider
+import com.tgse.index.domain.service.EnrollService
+import com.tgse.index.domain.service.RecordService
+import com.tgse.index.domain.service.ReplyService
+import com.tgse.index.domain.service.TelegramService
 import java.math.RoundingMode
 import java.text.DecimalFormat
 
 abstract class BaseMsgFactory(
-    protected open val reply: Reply,
+    protected open val replyService: ReplyService,
     protected open val botProvider: BotProvider
 ) {
 
     fun makeReplyMsg(chatId: Long, replyType: String): SendMessage {
         return SendMessage(
             chatId,
-            reply.message[replyType]!!.replace("\\{bot.username\\}".toRegex(), botProvider.username)
+            replyService.messages[replyType]!!.replace("\\{bot.username\\}".toRegex(), botProvider.username)
         ).disableWebPagePreview(false)
     }
 
-    protected fun makeRecordDetail(record: RecordElastic.Record): String {
+    protected fun makeRecordDetail(record: RecordService.Record): String {
         val link = if (record.username != null) "https://t.me/${record.username}" else record.link
         val detailSB = StringBuffer()
         detailSB.append("<b>标题</b>： <a href=\"$link\">${record.title}</a>\n")
@@ -31,7 +34,7 @@ abstract class BaseMsgFactory(
         return detailSB.toString()
     }
 
-    protected fun makeRecordDetail(enroll: EnrollElastic.Enroll): String {
+    protected fun makeRecordDetail(enroll: EnrollService.Enroll): String {
         val link = if (enroll.username != null) "https://t.me/${enroll.username}" else enroll.link
         val detailSB = StringBuffer()
         detailSB.append("<b>标题</b>： <a href=\"$link\">${enroll.title}</a>\n")
@@ -47,18 +50,18 @@ abstract class BaseMsgFactory(
     /**
      * 整理列表内容
      */
-    protected fun generateRecordItem(record: RecordElastic.Record): String {
+    protected fun generateRecordItem(record: RecordService.Record): String {
         // 频道或群组图标
         val icon = when (record.type) {
-            Telegram.TelegramModType.Group -> "\uD83D\uDC65"
-            Telegram.TelegramModType.Channel -> "\uD83D\uDCE2"
-            Telegram.TelegramModType.Bot -> "\uD83E\uDD16"
+            TelegramService.TelegramModType.Group -> "\uD83D\uDC65"
+            TelegramService.TelegramModType.Channel -> "\uD83D\uDCE2"
+            TelegramService.TelegramModType.Bot -> "\uD83E\uDD16"
             else -> "❓"
         }
         // 成员数量
         val members = when (record.type) {
-            Telegram.TelegramModType.Group -> getMemberUnit(record.members!!)
-            Telegram.TelegramModType.Channel -> getMemberUnit(record.members!!)
+            TelegramService.TelegramModType.Group -> getMemberUnit(record.members!!)
+            TelegramService.TelegramModType.Channel -> getMemberUnit(record.members!!)
             else -> ""
         }
         // 名称及地址
@@ -71,13 +74,13 @@ abstract class BaseMsgFactory(
     /**
      * 整理列表内容
      */
-    protected fun generateEnrollItem(enroll: EnrollElastic.Enroll): String {
+    protected fun generateEnrollItem(enroll: EnrollService.Enroll): String {
         // 频道或群组图标
         val icon = "⏳"
         // 成员数量
         val members = when (enroll.type) {
-            Telegram.TelegramModType.Group -> getMemberUnit(enroll.members!!)
-            Telegram.TelegramModType.Channel -> getMemberUnit(enroll.members!!)
+            TelegramService.TelegramModType.Group -> getMemberUnit(enroll.members!!)
+            TelegramService.TelegramModType.Channel -> getMemberUnit(enroll.members!!)
             else -> ""
         }
         // 名称及地址

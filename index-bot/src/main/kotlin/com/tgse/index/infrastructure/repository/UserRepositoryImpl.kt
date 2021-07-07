@@ -1,36 +1,28 @@
-package com.tgse.index.datasource
+package com.tgse.index.infrastructure.repository
 
-import com.pengrad.telegrambot.model.User
-import com.tgse.index.provider.ElasticsearchProvider
+import com.tgse.index.domain.service.UserService
+import com.tgse.index.domain.repository.UserRepository
+import com.tgse.index.infrastructure.provider.ElasticsearchProvider
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.update.UpdateRequest
-import org.elasticsearch.client.core.CountRequest
 import org.elasticsearch.client.indices.CreateIndexRequest
 import org.elasticsearch.common.settings.Settings
 import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
-import org.elasticsearch.index.query.MatchQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
-import org.elasticsearch.search.builder.SearchSourceBuilder
-import org.springframework.stereotype.Component
+import org.springframework.beans.factory.annotation.Value
+import org.springframework.stereotype.Repository
 import java.util.*
 
-
-/**
- * 用于统计用户量、日活用户
- *
- * TG-ES 承诺：
- * 绝不泄露用户数据
- * 绝不收集用户查询记录
- * 绝不用作其他目的
- */
-@Component
-class UserElastic(
-    private val elasticsearchProvider: ElasticsearchProvider
-) {
+@Repository
+class UserRepositoryImpl(
+    private val elasticsearchProvider: ElasticsearchProvider,
+    @Value("\${user.footprint.cycle}")
+    private val footprintCycle: Long
+) : UserRepository {
 
     private val index = "user"
 
@@ -65,52 +57,38 @@ class UserElastic(
         elasticsearchProvider.createIndex(request)
     }
 
-    data class User(
-        val id: Long,
-        /**
-         * 首次使用时间
-         */
-        val createTime: Long,
-        /**
-         * 上次使用时间
-         */
-        val updateTime: Long
-    )
-
-
-    fun footprint(tguser:com.pengrad.telegrambot.model.User){
+    override fun footprint(id: Long) {
         val now = Date().time
-        // 10分中内无需更新
-        val cycle = 600000
-        val exist = get(tguser.id().toLong())
-
-        when {
-            exist == null -> {
-                val user = User(tguser.id().toLong(), now,now)
-                add (user)
-            }
-            now - exist.updateTime  > cycle ->{
-                val user = exist.copy(updateTime = now)
-                update(user)
-            }
+        // 是否应记录
+        val user = get(id)
+        val exist = user != null
+        val shouldPrint = !exist || now - user!!.updateTime < footprintCycle * 1000
+        if (!shouldPrint) return
+        // 记录用户
+        if (exist) {
+            val newUser = user!!.copy(updateTime = now)
+            update(newUser)
+        } else {
+            val newUser = UserService.User(id, now, now)
+            add(newUser)
         }
     }
 
-    private fun get(id: Long): User? {
+    private fun get(id: Long): UserService.User? {
         val request = GetRequest(index, id.toString())
         val response = elasticsearchProvider.getDocument(request)
         if (!response.isExists) return null
         return generateUserFromHashMap(id, response.sourceAsMap)
     }
 
-    private fun add(user: User): Boolean {
+    private fun add(user: UserService.User): Boolean {
         val builder = generateXContentFromUser(user)
         val indexRequest = IndexRequest(index)
         indexRequest.id(user.id.toString()).source(builder)
         return elasticsearchProvider.indexDocument(indexRequest)
     }
 
-    private fun update(user: User): Boolean {
+    private fun update(user: UserService.User): Boolean {
         val builder = generateXContentFromUser(user)
         val updateRequest = UpdateRequest(index, user.id.toString()).doc(builder)
         return elasticsearchProvider.updateDocument(updateRequest)
@@ -121,32 +99,20 @@ class UserElastic(
         elasticsearchProvider.deleteDocument(deleteRequest)
     }
 
-    /**
-     * 日增
-     *
-     * gt: > 大于（greater than）
-     * lt: < 小于（less than）
-     * gte: >= 大于或等于（greater than or equal to）
-     * lte: <= 小于或等于（less than or equal to）
-     */
-    fun dailyIncrease ():Long {
-        val query = QueryBuilders.rangeQuery("createTime").gte("now-24h")
-        return elasticsearchProvider.countOfQuery(index, query)
+    override fun statistics(): Triple<Long, Long, Long> {
+        // 用户总量
+        val count = elasticsearchProvider.countOfDocument(index)
+        // 日增
+        val dailyIncreaseQuery = QueryBuilders.rangeQuery("createTime").gte("now-24h")
+        val dailyIncrease = elasticsearchProvider.countOfQuery(index, dailyIncreaseQuery)
+        // 日活
+        val dailyActiveQuery = QueryBuilders.rangeQuery("update").gte("now-24h")
+        val dailyActive = elasticsearchProvider.countOfQuery(index, dailyActiveQuery)
+
+        return Triple(count, dailyIncrease, dailyActive)
     }
 
-    /**
-     * 日活
-     */
-    fun dailyActive():Long {
-        val query = QueryBuilders.rangeQuery("update").gte("now-24h")
-        return elasticsearchProvider.countOfQuery(index, query)
-    }
-
-    fun count(): Long {
-        return elasticsearchProvider.countOfDocument(index)
-    }
-
-    private fun generateXContentFromUser(user: User): XContentBuilder {
+    private fun generateXContentFromUser(user: UserService.User): XContentBuilder {
         val builder = XContentFactory.jsonBuilder()
         builder.startObject()
         builder.field("createTime", user.createTime)
@@ -155,12 +121,11 @@ class UserElastic(
         return builder
     }
 
-    private fun generateUserFromHashMap(id: Long, map: MutableMap<String, Any?>): User {
-        return User(
+    private fun generateUserFromHashMap(id: Long, map: MutableMap<String, Any?>): UserService.User {
+        return UserService.User(
             id,
             map["createTime"] as Long,
             map["updateTime"] as Long,
         )
     }
-
 }

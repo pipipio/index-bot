@@ -5,11 +5,14 @@ import com.pengrad.telegrambot.request.AnswerCallbackQuery
 import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.area.execute.BlacklistExecute
 import com.tgse.index.area.execute.EnrollExecute
-import com.tgse.index.datasource.*
 import com.tgse.index.area.msgFactory.NormalMsgFactory
 import com.tgse.index.area.msgFactory.RecordMsgFactory
-import com.tgse.index.provider.BotProvider
-import com.tgse.index.provider.WatershedProvider
+import com.tgse.index.domain.repository.nick
+import com.tgse.index.infrastructure.provider.BotProvider
+import com.tgse.index.domain.service.AwaitStatusService
+import com.tgse.index.domain.service.EnrollService
+import com.tgse.index.domain.service.RecordService
+import com.tgse.index.domain.service.RequestService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
@@ -19,11 +22,10 @@ class Approve(
     private val enrollExecute: EnrollExecute,
     private val blacklistExecute: BlacklistExecute,
     private val botProvider: BotProvider,
-    private val watershedProvider: WatershedProvider,
-    private val enrollElastic: EnrollElastic,
-    private val recordElastic: RecordElastic,
-    private val userElastic: UserElastic,
-    private val awaitStatus: AwaitStatus,
+    private val requestService: RequestService,
+    private val enrollService: EnrollService,
+    private val recordService: RecordService,
+    private val awaitStatusService: AwaitStatusService,
     private val normalMsgFactory: NormalMsgFactory,
     private val recordMsgFactory: RecordMsgFactory,
     @Value("\${group.approve.id}")
@@ -42,17 +44,17 @@ class Approve(
     }
 
     private fun subscribeUpdate() {
-        watershedProvider.requestObservable.subscribe(
+        requestService.requestObservable.subscribe(
             { request ->
                 try {
-                    if (request !is WatershedProvider.BotApproveRequest) return@subscribe
+                    if (request !is RequestService.BotApproveRequest) return@subscribe
                     // 回执
                     when {
                         request.update.callbackQuery() != null -> {
                             botProvider.sendTyping(request.chatId)
                             executeByButton(request)
                         }
-                        awaitStatus.getAwaitStatus(request.chatId) != null -> {
+                        awaitStatusService.getAwaitStatus(request.chatId) != null -> {
                             botProvider.sendTyping(request.chatId)
                             enrollExecute.executeByStatus(EnrollExecute.Type.Approve, request)
                         }
@@ -79,7 +81,7 @@ class Approve(
     }
 
     private fun subscribeFeedback() {
-        watershedProvider.feedbackObservable.subscribe(
+        requestService.feedbackObservable.subscribe(
             { (record, user, content) ->
                 try {
                     val recordMsg = recordMsgFactory.makeFeedbackMsg(approveGroupChatId, record)
@@ -103,7 +105,7 @@ class Approve(
     }
 
     private fun subscribeSubmitEnroll() {
-        enrollElastic.submitEnrollObservable.subscribe(
+        enrollService.submitEnrollObservable.subscribe(
             { enroll ->
                 val msg = recordMsgFactory.makeApproveMsg(approveGroupChatId, enroll)
                 botProvider.send(msg)
@@ -120,7 +122,7 @@ class Approve(
     }
 
     private fun subscribeApproveEnroll() {
-        enrollElastic.submitApproveObservable.subscribe(
+        enrollService.submitApproveObservable.subscribe(
             { (enroll, manager, isPassed) ->
                 val msg = recordMsgFactory.makeApproveResultMsg(approveGroupChatId, enroll, manager, isPassed)
                 val msgResponse = botProvider.send(msg)
@@ -140,7 +142,7 @@ class Approve(
     }
 
     private fun subscribeDeleteRecord() {
-        recordElastic.deleteRecordObservable.subscribe(
+        recordService.deleteRecordObservable.subscribe(
             { next ->
                 try {
                     val msg = normalMsgFactory.makeRemoveRecordReplyMsg(approveGroupChatId, next.second.nick(), next.first.title)
@@ -161,7 +163,7 @@ class Approve(
         )
     }
 
-    private fun executeByCommand(request: WatershedProvider.BotApproveRequest) {
+    private fun executeByCommand(request: RequestService.BotApproveRequest) {
         // 获取命令内容
         val cmd = request.update.message().text().replaceFirst("/", "").replace("@${botProvider.username}", "")
         // 回执
@@ -176,7 +178,7 @@ class Approve(
         botProvider.send(sendMessage)
     }
 
-    private fun executeByButton(request: WatershedProvider.BotApproveRequest) {
+    private fun executeByButton(request: RequestService.BotApproveRequest) {
         val answer = AnswerCallbackQuery(request.update.callbackQuery().id())
         botProvider.send(answer)
 
@@ -191,7 +193,7 @@ class Approve(
             callbackData.startsWith("remove") -> {
                 val manager = request.update.callbackQuery().from()
                 val recordUUID = callbackData.replace("remove:", "")
-                recordElastic.deleteRecord(recordUUID, manager)
+                recordService.deleteRecord(recordUUID, manager)
                 val msg = normalMsgFactory.makeClearMarkupMsg(request.chatId,request.messageId!!)
                 botProvider.send(msg)
             }

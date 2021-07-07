@@ -6,12 +6,11 @@ import com.pengrad.telegrambot.request.AnswerCallbackQuery
 import com.pengrad.telegrambot.request.GetChatAdministrators
 import com.pengrad.telegrambot.request.SendMessage
 import com.tgse.index.area.execute.BlacklistExecute
-import com.tgse.index.datasource.*
 import com.tgse.index.area.msgFactory.NormalMsgFactory
 import com.tgse.index.area.msgFactory.RecordMsgFactory
-import com.tgse.index.provider.BotProvider
-import com.tgse.index.provider.WatershedProvider
-import com.tgse.index.provider.WatershedProvider.BotGroupRequest
+import com.tgse.index.domain.repository.nick
+import com.tgse.index.infrastructure.provider.BotProvider
+import com.tgse.index.domain.service.*
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Service
 import java.lang.RuntimeException
@@ -20,11 +19,11 @@ import java.util.*
 @Service
 class Group(
     private val botProvider: BotProvider,
-    private val watershedProvider: WatershedProvider,
-    private val recordElastic: RecordElastic,
-    private val enrollElastic: EnrollElastic,
-    private val telegram: Telegram,
-    private val blacklist: Blacklist,
+    private val requestService: RequestService,
+    private val recordService: RecordService,
+    private val enrollService: EnrollService,
+    private val telegramService: TelegramService,
+    private val blackListService: BlackListService,
     private val blacklistExecute: BlacklistExecute,
     private val normalMsgFactory: NormalMsgFactory,
     private val recordMsgFactory: RecordMsgFactory,
@@ -37,10 +36,10 @@ class Group(
     }
 
     private fun subscribeUpdate() {
-        watershedProvider.requestObservable.subscribe(
+        requestService.requestObservable.subscribe(
             { request ->
                 try {
-                    if (request !is BotGroupRequest) return@subscribe
+                    if (request !is RequestService.BotGroupRequest) return@subscribe
                     // 回执
                     when {
                         request.update.callbackQuery() != null ->{
@@ -72,11 +71,11 @@ class Group(
         )
     }
 
-    private fun executeByText(request: BotGroupRequest) {
+    private fun executeByText(request: RequestService.BotGroupRequest) {
         // todo: 群组中查找群组……
     }
 
-    private fun executeByCommand(request: BotGroupRequest) {
+    private fun executeByCommand(request: RequestService.BotGroupRequest) {
         // 获取命令内容
         val cmd = request.update.message().text().replaceFirst("/", "").replace("@${botProvider.username}", "")
         // 回执
@@ -97,7 +96,7 @@ class Group(
         botProvider.sendAutoDeleteMessage(sendMessage)
     }
 
-    private fun executeByButton(request: BotGroupRequest) {
+    private fun executeByButton(request: RequestService.BotGroupRequest) {
         val answer = AnswerCallbackQuery(request.update.callbackQuery().id())
         botProvider.send(answer)
 
@@ -109,7 +108,7 @@ class Group(
         }
     }
 
-    private fun executeByEnroll(request: BotGroupRequest): SendMessage? {
+    private fun executeByEnroll(request: RequestService.BotGroupRequest): SendMessage? {
         // 校验bot权限
         if (!checkMyAuthority(request.chatId))
             return normalMsgFactory.makeReplyMsg(request.chatId, "group-bot-authority")
@@ -121,32 +120,32 @@ class Group(
         if (!checkUserAuthority(request.chatId, user))
             return normalMsgFactory.makeReplyMsg(request.chatId, "group-user-authority")
         // 人员黑名单检测
-        val userBlack = blacklist.get(user.id().toLong())
+        val userBlack = blackListService.get(user.id().toLong())
         if (userBlack != null) {
-            val telegramPerson = Telegram.TelegramPerson(user.id().toLong(), user.username(), user.nick(), null)
+            val telegramPerson = TelegramService.TelegramPerson(user.id().toLong(), user.username(), user.nick(), null)
             blacklistExecute.notify(request.chatId, telegramPerson)
             return null
         }
         // 群组信息
-        val telegramGroup = telegram.getTelegramGroupFromChat(request.chatId) ?: throw RuntimeException("群组信息获取失败")
+        val telegramGroup = telegramService.getTelegramGroupFromChat(request.chatId) ?: throw RuntimeException("群组信息获取失败")
         // 收录对象黑名单检测
-        val recordBlack = blacklist.get(telegramGroup.chatId!!)
+        val recordBlack = blackListService.get(telegramGroup.chatId!!)
         if (recordBlack != null) {
             blacklistExecute.notify(request.chatId, telegramGroup)
             return null
         }
         // 检测是否已有提交或已收录
-        val enrollExist = enrollElastic.getSubmittedEnrollByChatId(telegramGroup.chatId)
-        val record = recordElastic.getRecordByChatId(telegramGroup.chatId)
+        val enrollExist = enrollService.getSubmittedEnrollByChatId(telegramGroup.chatId)
+        val record = recordService.getRecordByChatId(telegramGroup.chatId)
         if (enrollExist != null || record != null) {
             val msg = normalMsgFactory.makeReplyMsg(request.chatId, "exist")
             botProvider.send(msg)
             return null
         }
         // 入库
-        val enroll = EnrollElastic.Enroll(
+        val enroll = EnrollService.Enroll(
             UUID.randomUUID().toString(),
-            Telegram.TelegramModType.Group,
+            TelegramService.TelegramModType.Group,
             telegramGroup.chatId,
             telegramGroup.title,
             telegramGroup.description,
@@ -161,7 +160,7 @@ class Group(
             false,
             null
         )
-        val createEnroll = enrollElastic.addEnroll(enroll)
+        val createEnroll = enrollService.addEnroll(enroll)
         if (!createEnroll) throw RuntimeException("群组信息存储失败")
         // 回执
         val sendMessage = recordMsgFactory.makeEnrollMsg(user.id().toLong(), enroll)
@@ -169,7 +168,7 @@ class Group(
         return normalMsgFactory.makeReplyMsg(request.chatId, "pls-check-private")
     }
 
-    private fun executeByUpdate(request: BotGroupRequest): SendMessage? {
+    private fun executeByUpdate(request: RequestService.BotGroupRequest): SendMessage? {
         // 校验bot权限
         if (!checkMyAuthority(request.chatId))
             return normalMsgFactory.makeReplyMsg(request.chatId, "group-bot-authority")
@@ -181,13 +180,13 @@ class Group(
         if (!checkUserAuthority(request.chatId, user))
             return normalMsgFactory.makeReplyMsg(request.chatId, "group-user-authority")
         // 校验权限
-        val record = recordElastic.getRecordByChatId(request.chatId)
+        val record = recordService.getRecordByChatId(request.chatId)
         if (record == null) return normalMsgFactory.makeReplyMsg(request.chatId, "group-not-enroll")
         if (record.createUser != user.id().toLong()) return normalMsgFactory.makeReplyMsg(request.chatId, "group-enroller-fail")
         // 更新
-        val telegramGroup = telegram.getTelegramGroupFromChat(request.chatId) ?: throw RuntimeException("群组信息获取失败")
+        val telegramGroup = telegramService.getTelegramGroupFromChat(request.chatId) ?: throw RuntimeException("群组信息获取失败")
         val newRecord = record.copy(username = telegramGroup.username,link = telegramGroup.link)
-        recordElastic.updateRecord(newRecord)
+        recordService.updateRecord(newRecord)
         // 回执
         val msg = recordMsgFactory.makeRecordMsg(newRecord.createUser,newRecord)
         botProvider.send(msg)

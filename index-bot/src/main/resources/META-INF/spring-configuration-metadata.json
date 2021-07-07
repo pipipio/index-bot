@@ -83,6 +83,12 @@
       "type": "java.lang.Integer",
       "defaultValue": "30",
       "description": "secretary.memory.cycle"
+    },
+    {
+      "name": "user.footprint.cycle",
+      "type": "java.lang.Integer",
+      "defaultValue": "180",
+      "description": "Record user, unit: second"
     }
   ]
 }

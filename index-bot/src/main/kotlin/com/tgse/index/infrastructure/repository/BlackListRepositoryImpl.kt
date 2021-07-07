@@ -1,6 +1,8 @@
-package com.tgse.index.datasource
+package com.tgse.index.infrastructure.repository
 
-import com.tgse.index.provider.ElasticsearchProvider
+import com.tgse.index.domain.repository.BlackListRepository
+import com.tgse.index.domain.service.BlackListService
+import com.tgse.index.infrastructure.provider.ElasticsearchProvider
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.index.IndexRequest
 import org.elasticsearch.action.search.SearchRequest
@@ -10,18 +12,12 @@ import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.index.query.MatchQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
-import org.springframework.stereotype.Component
+import org.springframework.stereotype.Repository
 
-/**
- * 黑名单
- *
- * 无奈之举
- * 部分用户频繁恶意提交收录申请，给审核团队造成不必要的麻烦
- */
-@Component
-class Blacklist(
+@Repository
+class BlackListRepositoryImpl(
     private val elasticsearchProvider: ElasticsearchProvider
-) {
+) : BlackListRepository {
 
     private val index = "blacklist"
 
@@ -32,36 +28,20 @@ class Blacklist(
     private fun initializeBlacklist() {
         val exist = elasticsearchProvider.checkIndexExist(index)
         if (exist) return
-//        if(exist) elasticsearchProvider.deleteIndex(index)
         elasticsearchProvider.createIndex(index)
     }
 
-    enum class BlackType {
-        Record,
-        User
-    }
-
-    data class Black(
-        val uuid: String,
-        val type: BlackType,
-        val displayName: String,
-        val level: Int,
-        val chatId: Long?,
-        val username: String?,
-        val unfreezeTime: Long
-    )
-
-    fun get(username: String): Black? {
+    override fun get(username: String): BlackListService.Black? {
         val queryBuilder = QueryBuilders.matchQuery("username", username)
         return getBlack(queryBuilder)
     }
 
-    fun get(chatId: Long): Black? {
+    override fun get(chatId: Long): BlackListService.Black? {
         val queryBuilder = QueryBuilders.matchQuery("chatId", chatId)
         return getBlack(queryBuilder)
     }
 
-    private fun getBlack(queryBuilder: MatchQueryBuilder): Black? {
+    private fun getBlack(queryBuilder: MatchQueryBuilder): BlackListService.Black? {
         val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.query(queryBuilder)
@@ -71,25 +51,25 @@ class Blacklist(
         else generateBlackFromHashMap(response.hits.hits[0].id, response.hits.hits[0].sourceAsMap)
     }
 
-    fun add(black: Black): Boolean {
+    override fun add(black: BlackListService.Black): Boolean {
         val builder = generateXContentFromBlack(black)
         val indexRequest = IndexRequest(index)
         indexRequest.id(black.uuid).source(builder)
         return elasticsearchProvider.indexDocument(indexRequest)
     }
 
-    fun update(black: Black): Boolean {
+    override fun update(black: BlackListService.Black): Boolean {
         val builder = generateXContentFromBlack(black)
         val updateRequest = UpdateRequest(index, black.uuid).doc(builder)
         return elasticsearchProvider.updateDocument(updateRequest)
     }
 
-    fun delete(uuid: String) {
+    override fun delete(uuid: String) {
         val deleteRequest = DeleteRequest(index, uuid)
         elasticsearchProvider.deleteDocument(deleteRequest)
     }
 
-    private fun generateXContentFromBlack(black: Black): XContentBuilder {
+    private fun generateXContentFromBlack(black: BlackListService.Black): XContentBuilder {
         val builder = XContentFactory.jsonBuilder()
         builder.startObject()
         builder.field("type", black.type.name)
@@ -102,10 +82,10 @@ class Blacklist(
         return builder
     }
 
-    private fun generateBlackFromHashMap(uuid: String, map: MutableMap<String, Any?>): Black {
-        return Black(
+    private fun generateBlackFromHashMap(uuid: String, map: MutableMap<String, Any?>): BlackListService.Black {
+        return BlackListService.Black(
             uuid,
-            BlackType.valueOf(map["type"] as String),
+            BlackListService.BlackType.valueOf(map["type"] as String),
             map["displayName"] as String,
             map["level"] as Int,
             when (map["chatId"]) {

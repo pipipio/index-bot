@@ -1,9 +1,10 @@
-package com.tgse.index.datasource
+package com.tgse.index.infrastructure.repository
 
 import com.pengrad.telegrambot.model.User
-import com.tgse.index.provider.ElasticsearchProvider
-import io.reactivex.Observable
-import io.reactivex.subjects.BehaviorSubject
+import com.tgse.index.domain.repository.RecordRepository
+import com.tgse.index.domain.service.RecordService
+import com.tgse.index.domain.service.TelegramService
+import com.tgse.index.infrastructure.provider.ElasticsearchProvider
 import org.elasticsearch.action.delete.DeleteRequest
 import org.elasticsearch.action.get.GetRequest
 import org.elasticsearch.action.index.IndexRequest
@@ -18,18 +19,13 @@ import org.elasticsearch.index.query.MatchQueryBuilder
 import org.elasticsearch.index.query.QueryBuilders
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.sort.SortOrder
-import org.slf4j.LoggerFactory
-import org.springframework.stereotype.Component
-import java.util.*
+import org.springframework.stereotype.Repository
 
-/**
- * 数据引擎
- */
-@Component
-class RecordElastic(
-    private val elasticsearchProvider: ElasticsearchProvider,
-    private val telegram: Telegram
-) {
+@Repository
+class RecordRepositoryImpl(
+    private val elasticsearchProvider: ElasticsearchProvider
+) : RecordRepository {
+
 
     private val index = "record"
 
@@ -104,37 +100,10 @@ class RecordElastic(
         elasticsearchProvider.createIndex(request)
     }
 
-    data class Record(
-        val uuid: String,
-        val bulletinMessageId: Int?,
-        val type: Telegram.TelegramModType,
-        val chatId: Long?,
-        val title: String,
-        val description: String?,
-        /**
-         * 包含#
-         * 如：#apple #iphone
-         */
-        val tags: Collection<String>?,
-        val classification: String?,
-        val username: String?,
-        val link: String?,
-        val members: Long?,
-        val createTime: Long,
-        val createUser: Long,
-        val updateTime: Long,
-    )
-
-    private val updateRecordSubject = BehaviorSubject.create<Record>()
-    val updateRecordObservable: Observable<Record> = updateRecordSubject.distinct()
-
-    private val deleteRecordSubject = BehaviorSubject.create<Pair<Record, User>>()
-    val deleteRecordObservable: Observable<Pair<Record, User>> = deleteRecordSubject.distinct()
-
     /**
      * 根据分类查询
      */
-    fun searchRecordsByClassification(classification: String, from: Int, size: Int): Pair<MutableList<Record>, Long> {
+    override fun searchRecordsByClassification(classification: String, from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long> {
         val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         val queryBuilder = QueryBuilders.matchQuery("classification", classification)
@@ -142,7 +111,7 @@ class RecordElastic(
         searchRequest.source(searchSourceBuilder)
         val response = elasticsearchProvider.search(searchRequest)
 
-        val records = arrayListOf<Record>()
+        val records = arrayListOf<RecordService.Record>()
         response.hits.hits.forEach {
             val record = generateRecordFromHashMap(it.id, it.sourceAsMap)
             records.add(record)
@@ -154,7 +123,7 @@ class RecordElastic(
     /**
      * 根据关键词查询
      */
-    fun searchRecordsByKeyword(keyword: String, from: Int, size: Int): Pair<MutableList<Record>, Long> {
+    override fun searchRecordsByKeyword(keyword: String, from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long> {
         val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         val queryBuilder = QueryBuilders.multiMatchQuery(keyword, "title", "tags", "classification")
@@ -162,7 +131,7 @@ class RecordElastic(
         searchRequest.source(searchSourceBuilder)
         val response = elasticsearchProvider.search(searchRequest)
 
-        val records = arrayListOf<Record>()
+        val records = arrayListOf<RecordService.Record>()
         response.hits.hits.forEach {
             val record = generateRecordFromHashMap(it.id, it.sourceAsMap)
             records.add(record)
@@ -174,7 +143,7 @@ class RecordElastic(
     /**
      * 根据提交者查询
      */
-    fun searchRecordsByCreator(user: User, from: Int, size: Int): Pair<MutableList<Record>, Long> {
+    override fun searchRecordsByCreator(user: User, from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long> {
         try {
             val searchRequest = SearchRequest(index)
             val searchSourceBuilder = SearchSourceBuilder()
@@ -183,7 +152,7 @@ class RecordElastic(
             searchRequest.source(searchSourceBuilder)
             val response = elasticsearchProvider.search(searchRequest)
 
-            val records = arrayListOf<Record>()
+            val records = arrayListOf<RecordService.Record>()
             response.hits.hits.forEach {
                 val record = generateRecordFromHashMap(it.id, it.sourceAsMap)
                 records.add(record)
@@ -195,47 +164,42 @@ class RecordElastic(
         }
     }
 
-    fun addRecord(record: Record): Boolean {
+    override fun addRecord(record: RecordService.Record): Boolean {
         val builder = generateXContentFromRecord(record)
         val indexRequest = IndexRequest(index)
         indexRequest.id(record.uuid).source(builder)
         return elasticsearchProvider.indexDocument(indexRequest)
     }
 
-    fun updateRecord(record: Record) {
-        val newRecord = record.copy(updateTime = Date().time)
-        val builder = generateXContentFromRecord(newRecord)
-        val updateRequest = UpdateRequest(index, newRecord.uuid).doc(builder)
+    override fun updateRecord(record: RecordService.Record) {
+        val builder = generateXContentFromRecord(record)
+        val updateRequest = UpdateRequest(index, record.uuid).doc(builder)
         elasticsearchProvider.updateDocument(updateRequest)
-        updateRecordSubject.onNext(newRecord)
     }
 
-    fun deleteRecord(uuid: String, manager: User) {
-        val record = getRecord(uuid)!!
+    override fun deleteRecord(uuid: String, manager: User) {
         val deleteRequest = DeleteRequest(index, uuid)
         elasticsearchProvider.deleteDocument(deleteRequest)
-        deleteRecordSubject.onNext(Pair(record, manager))
     }
 
-    fun getRecord(uuid: String): Record? {
+    override fun getRecord(uuid: String): RecordService.Record? {
         val request = GetRequest(index, uuid)
         val response = elasticsearchProvider.getDocument(request)
         if (!response.isExists) return null
-        val record = generateRecordFromHashMap(uuid, response.sourceAsMap)
-        return realTimeRecord(record)
+        return generateRecordFromHashMap(uuid, response.sourceAsMap)
     }
 
-    fun getRecordByUsername(username: String): Record? {
+    override fun getRecordByUsername(username: String): RecordService.Record? {
         val queryBuilder = QueryBuilders.matchQuery("username", username)
         return getRecord(queryBuilder)
     }
 
-    fun getRecordByChatId(chatId: Long): Record? {
+    override fun getRecordByChatId(chatId: Long): RecordService.Record? {
         val queryBuilder = QueryBuilders.matchQuery("chatId", chatId)
         return getRecord(queryBuilder)
     }
 
-    private fun getRecord(queryBuilder: MatchQueryBuilder): Record? {
+    private fun getRecord(queryBuilder: MatchQueryBuilder): RecordService.Record? {
         val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.query(queryBuilder)
@@ -245,38 +209,11 @@ class RecordElastic(
         else generateRecordFromHashMap(response.hits.hits[0].id, response.hits.hits[0].sourceAsMap)
     }
 
-    fun count(): Long {
+    override fun count(): Long {
         return elasticsearchProvider.countOfDocument(index)
     }
 
-    private fun realTimeRecord(record: Record): Record {
-        try {
-            // 24小时后更新人数信息
-            val isOver24Hours = record.updateTime < Date().time - 24 * 60 * 60 * 1000
-            val isHasMembers = record.members != null
-            return if (isOver24Hours && isHasMembers) {
-                val telegramMod =
-                    if (record.username != null) telegram.getTelegramModFromWeb(record.username)
-                    else telegram.getTelegramGroupFromChat(record.chatId!!)
-
-                val members = when (telegramMod) {
-                    is Telegram.TelegramChannel -> telegramMod.members
-                    is Telegram.TelegramGroup -> telegramMod.members
-                    else -> 0L
-                }
-
-                val newRecord = record.copy(members = members)
-                updateRecord(newRecord)
-                newRecord
-            } else {
-                record
-            }
-        } catch (e: Throwable) {
-            return record
-        }
-    }
-
-    private fun generateXContentFromRecord(record: Record): XContentBuilder {
+    private fun generateXContentFromRecord(record: RecordService.Record): XContentBuilder {
         val tagsString =
             if (record.tags == null) null
             else record.tags.joinToString(" ")
@@ -299,17 +236,17 @@ class RecordElastic(
         return builder
     }
 
-    private fun generateRecordFromHashMap(uuid: String, map: MutableMap<String, Any?>): Record {
+    private fun generateRecordFromHashMap(uuid: String, map: MutableMap<String, Any?>): RecordService.Record {
         val tagsString = map["tags"].toString()
         val tags = when {
             tagsString.contains(" ") -> tagsString.split(" ")
             tagsString == "null" -> null
             else -> listOf(tagsString)
         }
-        return Record(
+        return RecordService.Record(
             uuid,
             map["bulletinMessageId"] as Int,
-            Telegram.TelegramModType.valueOf(map["type"] as String),
+            TelegramService.TelegramModType.valueOf(map["type"] as String),
             when (map["chatId"]) {
                 is Int -> (map["chatId"] as Int).toLong()
                 is Long -> map["chatId"] as Long
@@ -331,5 +268,4 @@ class RecordElastic(
             map["updateTime"] as Long
         )
     }
-
 }

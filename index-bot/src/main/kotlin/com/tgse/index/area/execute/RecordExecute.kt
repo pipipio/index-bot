@@ -1,11 +1,10 @@
 package com.tgse.index.area.execute
 
 import com.tgse.index.MismatchException
-import com.tgse.index.datasource.*
 import com.tgse.index.area.msgFactory.NormalMsgFactory
 import com.tgse.index.area.msgFactory.RecordMsgFactory
-import com.tgse.index.provider.BotProvider
-import com.tgse.index.provider.WatershedProvider
+import com.tgse.index.infrastructure.provider.BotProvider
+import com.tgse.index.domain.service.*
 import org.springframework.stereotype.Component
 
 @Component
@@ -14,25 +13,25 @@ class RecordExecute(
     private val botProvider: BotProvider,
     private val normalMsgFactory: NormalMsgFactory,
     private val recordMsgFactory: RecordMsgFactory,
-    private val enrollElastic: EnrollElastic,
-    private val recordElastic: RecordElastic,
-    private val telegram: Telegram,
-    private val blacklist: Blacklist,
-    private val awaitStatus: AwaitStatus
+    private val enrollService: EnrollService,
+    private val recordService: RecordService,
+    private val telegramService: TelegramService,
+    private val blackListService: BlackListService,
+    private val awaitStatusService: AwaitStatusService
 ) {
 
-    fun executeByRecordButton(request: WatershedProvider.BotRequest) {
+    fun executeByRecordButton(request: RequestService.BotRequest) {
         val user = request.update.callbackQuery().from()
         val callbackData = request.update.callbackQuery().data()
         val callbackDataVal = callbackData.replace("update:", "").replace("record-class:", "").split("&")
         val field = callbackDataVal[0]
-        val record = recordElastic.getRecord(callbackDataVal[1])!!
+        val record = recordService.getRecord(callbackDataVal[1])!!
         when {
             // 通过按钮修改收录申请信息
             callbackData.startsWith("record-class:") -> {
                 // 修改数据
                 val newRecord = record.copy(classification = field)
-                recordElastic.updateRecord(newRecord)
+                recordService.updateRecord(newRecord)
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
                 // 回执新消息
@@ -41,18 +40,18 @@ class RecordExecute(
             }
             // 通过文字修改收录申链接
             field == "link" -> {
-                if (record.type == Telegram.TelegramModType.Group) {
+                if (record.type == TelegramService.TelegramModType.Group) {
                     val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "update-link-group")
                     botProvider.send(msg)
                     return
                 }
-                awaitStatus.setAwaitStatus(request.chatId!!, AwaitStatus.Await(request.messageId!!, callbackData))
+                awaitStatusService.setAwaitStatus(request.chatId!!, AwaitStatusService.Await(request.messageId!!, callbackData))
                 val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "update-$field").disableWebPagePreview(true)
                 botProvider.send(msg)
             }
             // 通过文字修改收录申请信息
             arrayOf("title", "about", "tags").contains(field) -> {
-                awaitStatus.setAwaitStatus(request.chatId!!, AwaitStatus.Await(request.messageId!!, callbackData))
+                awaitStatusService.setAwaitStatus(request.chatId!!, AwaitStatusService.Await(request.messageId!!, callbackData))
                 val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "update-$field")
                 botProvider.send(msg)
             }
@@ -68,7 +67,7 @@ class RecordExecute(
             field == "remove" -> {
                 // 删除上一条消息
                 botProvider.sendDeleteMessage(request.chatId!!, request.messageId!!)
-                recordElastic.deleteRecord(record.uuid, user)
+                recordService.deleteRecord(record.uuid, user)
                 // 回执新消息
                 val msg = normalMsgFactory.makeRemoveRecordReplyMsg(request.chatId!!, record.title)
                 botProvider.send(msg)
@@ -76,38 +75,38 @@ class RecordExecute(
         }
     }
 
-    fun executeByStatus(request: WatershedProvider.BotRequest) {
-        val statusCallbackData = awaitStatus.getAwaitStatus(request.chatId!!)!!.callbackData
+    fun executeByStatus(request: RequestService.BotRequest) {
+        val statusCallbackData = awaitStatusService.getAwaitStatus(request.chatId!!)!!.callbackData
         val callbackDataVal = statusCallbackData.replace("update:", "").split("&")
         val field = callbackDataVal[0]
         val uuid = callbackDataVal[1]
         val msgContent = request.update.message().text()
         try {
-            val record = recordElastic.getRecord(uuid)!!
+            val record = recordService.getRecord(uuid)!!
             val newRecord = when (field) {
                 "link" -> {
                     // 获取收录内容
                     val username = request.update.message().text().replaceFirst("@", "").replaceFirst("https://t.me/", "")
                     if (record.username == username) throw MismatchException("链接未发生改变")
-                    val telegramMod = telegram.getTelegramModFromWeb(username)
+                    val telegramMod = telegramService.getTelegramModFromWeb(username)
                     // 收录对象黑名单检测
-                    val recordBlack = blacklist.get(username)
+                    val recordBlack = blackListService.get(username)
                     if (recordBlack != null && telegramMod != null) {
                         blacklistExecute.notify(request.chatId!!, telegramMod)
                         return
                     }
                     // 检测是否已有提交或已收录
-                    val enrollExist = enrollElastic.getSubmittedEnrollByUsername(username)
-                    val recordExist = recordElastic.getRecordByUsername(username)
+                    val enrollExist = enrollService.getSubmittedEnrollByUsername(username)
+                    val recordExist = recordService.getRecordByUsername(username)
                     if (enrollExist != null || recordExist != null) {
                         val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "exist")
                         botProvider.send(msg)
                         return
                     }
                     val type = when (telegramMod) {
-                        is Telegram.TelegramGroup -> Telegram.TelegramModType.Group
-                        is Telegram.TelegramChannel -> Telegram.TelegramModType.Channel
-                        is Telegram.TelegramBot -> Telegram.TelegramModType.Bot
+                        is TelegramService.TelegramGroup -> TelegramService.TelegramModType.Group
+                        is TelegramService.TelegramChannel -> TelegramService.TelegramModType.Channel
+                        is TelegramService.TelegramBot -> TelegramService.TelegramModType.Bot
                         else -> throw MismatchException("链接不存在")
                     }
                     if(record.type != type) throw  throw MismatchException("类型不匹配")
@@ -131,9 +130,9 @@ class RecordExecute(
                 }
                 else -> throw RuntimeException("record request")
             }
-            recordElastic.updateRecord(newRecord)
+            recordService.updateRecord(newRecord)
             // 清除状态
-            awaitStatus.applyAwaitStatus(request.chatId!!)
+            awaitStatusService.applyAwaitStatus(request.chatId!!)
             // 回执新消息
             val msg = recordMsgFactory.makeRecordMsg(request.chatId!!, newRecord)
             botProvider.send(msg)

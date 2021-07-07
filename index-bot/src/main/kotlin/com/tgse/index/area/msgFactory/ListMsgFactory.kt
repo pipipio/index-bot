@@ -5,10 +5,10 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.EditMessageText
 import com.pengrad.telegrambot.request.SendMessage
-import com.tgse.index.datasource.RecordElastic
-import com.tgse.index.datasource.Reply
-import com.tgse.index.datasource.Type
-import com.tgse.index.provider.BotProvider
+import com.tgse.index.infrastructure.provider.BotProvider
+import com.tgse.index.domain.service.ClassificationService
+import com.tgse.index.domain.service.RecordService
+import com.tgse.index.domain.service.ReplyService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.util.*
@@ -16,18 +16,18 @@ import java.util.*
 @Component
 class ListMsgFactory(
     override val botProvider: BotProvider,
-    override val reply: Reply,
-    private val type: Type,
-    private val recordElastic: RecordElastic,
+    override val replyService: ReplyService,
+    private val classificationService: ClassificationService,
+    private val recordService: RecordService,
     @Value("\${secretary.list.size}")
     private val perPageSize: Int,
     @Value("\${secretary.memory.size}")
     private val memorySize: Int,
     @Value("\${secretary.memory.cycle}")
     private val memoryCycle: Int
-) : BaseMsgFactory(reply, botProvider) {
+) : BaseMsgFactory(replyService, botProvider) {
 
-    private val searchListSaved = mutableMapOf<String, MutableMap<Int, Pair<MutableList<RecordElastic.Record>, Long>>>()
+    private val searchListSaved = mutableMapOf<String, MutableMap<Int, Pair<MutableList<RecordService.Record>, Long>>>()
     private val searchListSavedTimers = mutableMapOf<String, MutableMap<Int, Timer>>()
     private var searchListSavedCount = 0
 
@@ -58,15 +58,15 @@ class ListMsgFactory(
             .parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
-    private fun searchList(keywords: String, from: Int): Pair<MutableList<RecordElastic.Record>, Long> {
+    private fun searchList(keywords: String, from: Int): Pair<MutableList<RecordService.Record>, Long> {
         // 如若已暂存直接返回
         val saved = get(keywords, from)
         if (saved != null) return saved
         // 如若未暂存，去elasticsearch中查询
-        val isShouldConsiderKeywords = type.contains(keywords)
+        val isShouldConsiderKeywords = classificationService.contains(keywords)
         val searched =
-            if (isShouldConsiderKeywords) recordElastic.searchRecordsByClassification(keywords, from, perPageSize)
-            else recordElastic.searchRecordsByKeyword(keywords, from, perPageSize)
+            if (isShouldConsiderKeywords) recordService.searchRecordsByClassification(keywords, from, perPageSize)
+            else recordService.searchRecordsByKeyword(keywords, from, perPageSize)
         save(keywords,from,searched)
         return searched
     }
@@ -103,7 +103,7 @@ class ListMsgFactory(
     }
 
     @Synchronized
-    private fun get(keywords: String, from: Int): Pair<MutableList<RecordElastic.Record>, Long>? {
+    private fun get(keywords: String, from: Int): Pair<MutableList<RecordService.Record>, Long>? {
         return if (searchListSaved[keywords] != null && searchListSaved[keywords]!![from] != null)
             searchListSaved[keywords]!![from]!!
         else
@@ -111,7 +111,7 @@ class ListMsgFactory(
     }
 
     @Synchronized
-    private fun save(keywords: String, from: Int, searchList: Pair<MutableList<RecordElastic.Record>, Long>) {
+    private fun save(keywords: String, from: Int, searchList: Pair<MutableList<RecordService.Record>, Long>) {
         if (searchListSavedCount >= memorySize) return
         if (searchListSaved[keywords] == null) searchListSaved[keywords] = mutableMapOf()
         searchListSaved[keywords]!![from] = searchList

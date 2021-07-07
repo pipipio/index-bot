@@ -6,33 +6,33 @@ import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.EditMessageText
 import com.pengrad.telegrambot.request.SendMessage
-import com.tgse.index.datasource.EnrollElastic
-import com.tgse.index.datasource.RecordElastic
-import com.tgse.index.datasource.Reply
-import com.tgse.index.provider.BotProvider
+import com.tgse.index.infrastructure.provider.BotProvider
+import com.tgse.index.domain.service.EnrollService
+import com.tgse.index.domain.service.RecordService
+import com.tgse.index.domain.service.ReplyService
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 
 @Component
 class MineMsgFactory(
     override val botProvider: BotProvider,
-    override val reply: Reply,
-    private val recordElastic: RecordElastic,
-    private val enrollElastic: EnrollElastic,
+    override val replyService: ReplyService,
+    private val recordService: RecordService,
+    private val enrollService: EnrollService,
     @Value("\${secretary.list.size}")
     private val perPageSize: Int
-) : BaseMsgFactory(reply, botProvider) {
+) : BaseMsgFactory(replyService, botProvider) {
 
     fun makeListFirstPageMsg(user: User): SendMessage {
         val (detail, keyboard) =
-            makeListDetailAndKeyboard(user, 1) ?: Pair(reply.message["empty"], InlineKeyboardMarkup())
+            makeListDetailAndKeyboard(user, 1) ?: Pair(replyService.messages["empty"], InlineKeyboardMarkup())
         return SendMessage(user.id(), detail)
             .parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
     fun makeListNextPageMsg(user: User, messageId: Int, pageIndex: Int): EditMessageText {
         val (detail, keyboard) =
-            makeListDetailAndKeyboard(user, pageIndex) ?: Pair(reply.message["empty"], InlineKeyboardMarkup())
+            makeListDetailAndKeyboard(user, pageIndex) ?: Pair(replyService.messages["empty"], InlineKeyboardMarkup())
         return EditMessageText(user.id().toLong(), messageId, detail)
             .parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
@@ -60,10 +60,10 @@ class MineMsgFactory(
     private fun searchForMine(
         user: User,
         from: Int
-    ): Triple<MutableList<RecordElastic.Record>, MutableList<EnrollElastic.Enroll>, Long> {
-        val (records, recordTotalCount) = recordElastic.searchRecordsByCreator(user, from, perPageSize)
+    ): Triple<MutableList<RecordService.Record>, MutableList<EnrollService.Enroll>, Long> {
+        val (records, recordTotalCount) = recordService.searchRecordsByCreator(user, from, perPageSize)
         val enrollsFrom = if (from > recordTotalCount) from - recordTotalCount.toInt() else 0
-        val (enrolls, enrollTotalCount) = enrollElastic.searchEnrolls(user, enrollsFrom, perPageSize - records.size)
+        val (enrolls, enrollTotalCount) = enrollService.searchEnrolls(user, enrollsFrom, perPageSize - records.size)
         val totalCount = enrollTotalCount + recordTotalCount
         return Triple(records, enrolls, totalCount)
     }

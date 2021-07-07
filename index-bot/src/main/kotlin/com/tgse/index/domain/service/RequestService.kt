@@ -1,10 +1,10 @@
-package com.tgse.index.provider
+package com.tgse.index.domain.service
 
 import com.pengrad.telegrambot.model.Chat
 import com.pengrad.telegrambot.model.Update
 import com.pengrad.telegrambot.model.User
 import com.tgse.index.area.Group
-import com.tgse.index.datasource.RecordElastic
+import com.tgse.index.infrastructure.provider.BotProvider
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 import org.slf4j.LoggerFactory
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service
  * 区分 群组、私聊、管理 信息来源
  */
 @Service
-class WatershedProvider(
+class RequestService(
     private val botProvider: BotProvider,
     @Value("\${group.approve.id}")
     private val approveGroupChatId: Long
@@ -65,8 +65,8 @@ class WatershedProvider(
     private val logger = LoggerFactory.getLogger(Group::class.java)
     private val requestSubject = BehaviorSubject.create<BotRequest>()
     val requestObservable: Observable<BotRequest> = requestSubject.distinct()
-    val feedbackSubject = BehaviorSubject.create<Triple<RecordElastic.Record, User, String>>()
-    val feedbackObservable: Observable<Triple<RecordElastic.Record, User, String>> = feedbackSubject.distinct()
+    val feedbackSubject = BehaviorSubject.create<Triple<RecordService.Record, User, String>>()
+    val feedbackObservable: Observable<Triple<RecordService.Record, User, String>> = feedbackSubject.distinct()
 
     init {
         subscribeUpdate()

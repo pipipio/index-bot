@@ -1,4 +1,4 @@
-package com.tgse.index.provider
+package com.tgse.index.infrastructure.provider
 
 import com.tgse.index.ElasticProperties
 import org.apache.http.HttpHost
