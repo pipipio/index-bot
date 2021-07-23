@@ -51,7 +51,7 @@ class TelegramRepositoryImpl(
 
         return when {
             isNotFound -> null
-            members.contains("online") -> TelegramService.TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
+            members.contains("members") -> TelegramService.TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
             members.contains("subscriber") -> TelegramService.TelegramChannel(username, title, fixedDescription, fixedMembers)
             members.toLowerCase().endsWith("bot") -> TelegramService.TelegramBot(username, title, fixedDescription)
             else -> TelegramService.TelegramPerson(null, username, title, fixedDescription)

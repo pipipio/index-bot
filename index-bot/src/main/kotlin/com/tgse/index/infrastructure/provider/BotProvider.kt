@@ -14,6 +14,7 @@ import com.tgse.index.SetCommandException
 import io.reactivex.Observable
 import io.reactivex.subjects.BehaviorSubject
 import okhttp3.OkHttpClient
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
@@ -29,6 +30,8 @@ class BotProvider(
     @Value("\${secretary.autoDeleteMsgCycle}")
     private val autoDeleteMsgCycle: Long
 ) {
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
     private val requestExecutorService = run {
         val pool = Executors.newCachedThreadPool {
             val thread = Thread(it, "用户请求处理线程")
@@ -60,7 +63,7 @@ class BotProvider(
     init {
         setCommands()
         handleUpdate()
-        println("Bot ready.")
+        logger.info("Bot ready.")
     }
 
     private fun setCommands() {
