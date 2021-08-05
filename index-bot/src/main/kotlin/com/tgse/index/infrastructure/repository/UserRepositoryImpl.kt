@@ -13,6 +13,7 @@ import org.elasticsearch.common.xcontent.XContentBuilder
 import org.elasticsearch.common.xcontent.XContentFactory
 import org.elasticsearch.common.xcontent.XContentType
 import org.elasticsearch.index.query.QueryBuilders
+import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Repository
 import java.util.*
@@ -24,6 +25,7 @@ class UserRepositoryImpl(
     private val footprintCycle: Long
 ) : UserRepository {
 
+    private val logger = LoggerFactory.getLogger(this::class.java)
     private val index = "user"
 
     init {
@@ -58,19 +60,23 @@ class UserRepositoryImpl(
     }
 
     override fun footprint(id: Long) {
-        val now = Date().time
-        // 是否应记录
-        val user = get(id)
-        val exist = user != null
-        val shouldPrint = !exist || now - user!!.updateTime < footprintCycle * 1000
-        if (!shouldPrint) return
-        // 记录用户
-        if (exist) {
-            val newUser = user!!.copy(updateTime = now)
-            update(newUser)
-        } else {
-            val newUser = UserService.User(id, now, now)
-            add(newUser)
+        try {
+            val now = Date().time
+            // 是否应记录
+            val user = get(id)
+            val exist = user != null
+            val shouldPrint = !exist || now - user!!.updateTime < footprintCycle * 1000
+            if (!shouldPrint) return
+            // 记录用户
+            if (exist) {
+                val newUser = user!!.copy(updateTime = now)
+                update(newUser)
+            } else {
+                val newUser = UserService.User(id, now, now)
+                add(newUser)
+            }
+        } catch (t: Throwable) {
+            logger.error("footprint error,user id is '$id'", t)
         }
     }
 

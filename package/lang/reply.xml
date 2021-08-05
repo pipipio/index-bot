@@ -154,6 +154,14 @@
     </msg>
     <msg>
         <type>
+            record-removed
+        </type>
+        <content>
+            收录信息已被移除
+        </content>
+    </msg>
+    <msg>
+        <type>
             list
         </type>
         <content>

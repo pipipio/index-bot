@@ -18,6 +18,7 @@ class Bulletin(
     @Value("\${channel.bulletin.id}")
     private val bulletinChatId: Long
 ) {
+
     private val logger = LoggerFactory.getLogger(Bulletin::class.java)
 
     init {
@@ -51,9 +52,7 @@ class Bulletin(
                 }
             },
             { throwable ->
-                throwable.printStackTrace()
-                logger.error("Bulletin.subscribeUpdateRecord.error")
-                botProvider.sendErrorMessage(throwable)
+                logger.error("Bulletin.subscribeUpdateRecord.error", throwable)
             },
             {
                 logger.error("Bulletin.subscribeUpdateRecord.complete")
@@ -68,16 +67,15 @@ class Bulletin(
         recordService.deleteRecordObservable.subscribe(
             { (record, _) ->
                 try {
-                    botProvider.sendDeleteMessage(bulletinChatId, record.bulletinMessageId!!)
+                    val msg = bulletinMsgFactory.makeRemovedBulletinMsg(bulletinChatId, record.bulletinMessageId!!)
+                    botProvider.send(msg)
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
                     e.printStackTrace()
                 }
             },
             { throwable ->
-                throwable.printStackTrace()
-                logger.error("Bulletin.subscribeDeleteRecord.error")
-                botProvider.sendErrorMessage(throwable)
+                logger.error("Bulletin.subscribeDeleteRecord.error", throwable)
             },
             {
                 logger.error("Bulletin.subscribeDeleteRecord.complete")
