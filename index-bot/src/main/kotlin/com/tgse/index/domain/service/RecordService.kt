@@ -3,8 +3,8 @@ package com.tgse.index.domain.service
 import com.pengrad.telegrambot.model.User
 import com.tgse.index.domain.repository.RecordRepository
 import com.tgse.index.domain.repository.TelegramRepository
-import io.reactivex.Observable
-import io.reactivex.subjects.BehaviorSubject
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.subjects.BehaviorSubject
 import org.springframework.stereotype.Service
 import java.util.*
 

@@ -11,8 +11,8 @@ import com.pengrad.telegrambot.response.*
 import com.tgse.index.BotProperties
 import com.tgse.index.ProxyProperties
 import com.tgse.index.SetCommandException
-import io.reactivex.Observable
-import io.reactivex.subjects.BehaviorSubject
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.subjects.BehaviorSubject
 import okhttp3.OkHttpClient
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value

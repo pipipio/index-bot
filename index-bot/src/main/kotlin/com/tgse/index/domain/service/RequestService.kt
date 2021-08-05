@@ -5,8 +5,8 @@ import com.pengrad.telegrambot.model.Update
 import com.pengrad.telegrambot.model.User
 import com.tgse.index.area.Group
 import com.tgse.index.infrastructure.provider.BotProvider
-import io.reactivex.Observable
-import io.reactivex.subjects.BehaviorSubject
+import io.reactivex.rxjava3.core.Observable
+import io.reactivex.rxjava3.subjects.BehaviorSubject
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service

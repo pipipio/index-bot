@@ -1,9 +1,9 @@
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    id("org.springframework.boot") version "2.4.2"
+    id("org.springframework.boot") version "2.5.3"
     id("io.spring.dependency-management") version "1.0.11.RELEASE"
-    kotlin("jvm") version "1.4.30"
+    kotlin("jvm") version "1.5.20"
     kotlin("plugin.spring") version "1.4.30"
 }
 
@@ -32,19 +32,17 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
-    implementation("com.google.guava:guava:24.0-jre")
+    implementation("com.google.guava:guava:30.1.1-jre")
     implementation("org.dom4j:dom4j:2.1.3")
-    implementation("org.jsoup:jsoup:1.13.1")
+    implementation("org.jsoup:jsoup:1.14.1")
     implementation("org.apache.commons:commons-text:1.9")
-    implementation("org.apache.logging.log4j:log4j-api:2.14.0")
-    implementation("io.reactivex.rxjava2:rxjava:2.2.21")
+    implementation("io.reactivex.rxjava3:rxjava:3.0.13")
 
     // telegram
-    api("com.github.pengrad:java-telegram-bot-api:5.0.1")
+    api("com.github.pengrad:java-telegram-bot-api:5.2.0")
     // await status
     implementation("org.ethereum:leveldbjni-all:1.18.3")
     // elasticsearch
-    implementation("org.elasticsearch:elasticsearch:7.12.0")
     implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.12.0")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")

@@ -28,6 +28,12 @@ class BulletinMsgFactory(
         return EditMessageText(chatId, messageId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
     }
 
+    fun makeRemovedBulletinMsg(chatId: Long, messageId: Int): EditMessageText {
+        val text = replyService.messages["record-removed"]
+        val keyboard = InlineKeyboardMarkup()
+        return EditMessageText(chatId, messageId, text).replyMarkup(keyboard)
+    }
+
     private fun makePointKeyboardMarkup(enrollUUID: String): InlineKeyboardMarkup {
         return InlineKeyboardMarkup(
             arrayOf(
