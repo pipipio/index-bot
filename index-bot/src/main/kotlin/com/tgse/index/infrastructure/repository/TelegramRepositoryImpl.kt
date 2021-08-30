@@ -1,5 +1,6 @@
 package com.tgse.index.infrastructure.repository
 
+import com.pengrad.telegrambot.model.Chat
 import com.pengrad.telegrambot.request.GetChat
 import com.pengrad.telegrambot.request.GetChatMembersCount
 import com.tgse.index.ProxyProperties
@@ -33,14 +34,20 @@ class TelegramRepositoryImpl(
     /**
      * 公开群组、频道、机器人
      */
-    override fun getTelegramModFromWeb(username: String): TelegramService.TelegramMod? {
-        return try{
+    override fun getTelegramMod(username: String): TelegramService.TelegramMod? {
+        return getTelegramModFromWeb(username) ?: getTelegramModFromBot(username)
+    }
+
+    /**
+     * 公开群组、频道、机器人
+     */
+    private fun getTelegramModFromWeb(username: String): TelegramService.TelegramMod? {
+        return try {
             if (username.isEmpty()) return null
             val connect = Jsoup.connect("https://t.me/$username")
             val doc =
                 if (proxyProperties.enabled) connect.proxy(proxy).get()
                 else connect.get()
-
             val isNotFound = doc.select(".tgme_page_wrap .tgme_page .tgme_page_icon").html().contains("tgme_icon_user")
             val title = doc.select(".tgme_page_wrap .tgme_page .tgme_page_title span").text()
             val about = doc.select(".tgme_page_wrap .tgme_page .tgme_page_description").html()
@@ -54,7 +61,7 @@ class TelegramRepositoryImpl(
                 else -> 0L
             }
 
-             when {
+            when {
                 isNotFound -> null
                 members.contains("members") -> TelegramService.TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
                 members.contains("subscriber") -> TelegramService.TelegramChannel(username, title, fixedDescription, fixedMembers)
@@ -68,9 +75,47 @@ class TelegramRepositoryImpl(
     }
 
     /**
+     * 公开群组、频道、机器人
+     */
+    private fun getTelegramModFromBot(username: String): TelegramService.TelegramMod? {
+        return try {
+            if (username.isEmpty()) return null
+            val getChat = GetChat("@$username")
+            val getChatResponse = botProvider.send(getChat)
+            val chat = getChatResponse.chat() ?: return null
+            val getChatMembersCount = GetChatMembersCount("@$username")
+            val getChatMembersCountResponse = botProvider.send(getChatMembersCount)
+            val membersCount = getChatMembersCountResponse.count() ?: 0
+
+            return when (chat.type()) {
+                Chat.Type.group, Chat.Type.supergroup ->
+                    TelegramService.TelegramGroup(
+                        chat.id(),
+                        username,
+                        chat.inviteLink(),
+                        chat.title(),
+                        chat.description(),
+                        membersCount.toLong()
+                    )
+                Chat.Type.channel ->
+                    TelegramService.TelegramChannel(
+                        username,
+                        chat.title(),
+                        chat.description(),
+                        membersCount.toLong()
+                    )
+                else -> null
+            }
+        } catch (t: Throwable) {
+            logger.error("get telegram info from bot error,the telegram username is '$username'", t)
+            null
+        }
+    }
+
+    /**
      * 群组
      */
-    override fun getTelegramGroupFromChat(id: Long): TelegramService.TelegramGroup? {
+    override fun getTelegramMod(id: Long): TelegramService.TelegramGroup? {
         return try {
             val getChat = GetChat(id)
             val chat = botProvider.send(getChat).chat()
@@ -81,7 +126,7 @@ class TelegramRepositoryImpl(
             val link = if (chat.username() != null) null else chat.inviteLink()
             TelegramService.TelegramGroup(id, chat.username(), link, chat.title(), chat.description(), count.toLong())
         } catch (t: Throwable) {
-            logger.error("get telegram info from chat error,the telegram chatId is '$id'", t)
+            logger.error("get telegram info error,the telegram chatId is '$id'", t)
             null
         }
     }

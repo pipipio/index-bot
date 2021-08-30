@@ -118,6 +118,7 @@ class ElasticsearchProvider(
 //        countRequest.query(QueryBuilders.matchAllQuery())
 
         val countRequest = CountRequest()
+        countRequest.indices(index)
         val searchSourceBuilder = SearchSourceBuilder()
         searchSourceBuilder.query(QueryBuilders.matchAllQuery())
         countRequest.source(searchSourceBuilder)

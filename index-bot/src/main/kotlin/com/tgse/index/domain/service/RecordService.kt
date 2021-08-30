@@ -86,8 +86,8 @@ class RecordService(
             val isHasMembers = record.members != null
             return if (isOver24Hours && isHasMembers) {
                 val telegramMod =
-                    if (record.username != null) telegramRepository.getTelegramModFromWeb(record.username)
-                    else telegramRepository.getTelegramGroupFromChat(record.chatId!!)
+                    if (record.username != null) telegramRepository.getTelegramMod(record.username)
+                    else telegramRepository.getTelegramMod(record.chatId!!)
 
                 val members = when (telegramMod) {
                     is TelegramService.TelegramChannel -> telegramMod.members

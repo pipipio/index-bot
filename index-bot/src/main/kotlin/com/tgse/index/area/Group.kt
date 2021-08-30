@@ -127,7 +127,7 @@ class Group(
             return null
         }
         // 群组信息
-        val telegramGroup = telegramService.getTelegramGroupFromChat(request.chatId) ?: throw RuntimeException("群组信息获取失败")
+        val telegramGroup = telegramService.getTelegramMod(request.chatId) ?: throw RuntimeException("群组信息获取失败")
         // 收录对象黑名单检测
         val recordBlack = blackListService.get(telegramGroup.chatId!!)
         if (recordBlack != null) {
@@ -184,7 +184,7 @@ class Group(
         if (record == null) return normalMsgFactory.makeReplyMsg(request.chatId, "group-not-enroll")
         if (record.createUser != user.id().toLong()) return normalMsgFactory.makeReplyMsg(request.chatId, "group-enroller-fail")
         // 更新
-        val telegramGroup = telegramService.getTelegramGroupFromChat(request.chatId) ?: throw RuntimeException("群组信息获取失败")
+        val telegramGroup = telegramService.getTelegramMod(request.chatId) ?: throw RuntimeException("群组信息获取失败")
         val newRecord = record.copy(username = telegramGroup.username,link = telegramGroup.link)
         recordService.updateRecord(newRecord)
         // 回执

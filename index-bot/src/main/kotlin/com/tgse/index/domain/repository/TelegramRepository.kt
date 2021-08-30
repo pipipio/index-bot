@@ -8,12 +8,12 @@ interface TelegramRepository {
     /**
      * 公开群组、频道、机器人
      */
-    fun getTelegramModFromWeb(username: String): TelegramService.TelegramMod?
+    fun getTelegramMod(username: String): TelegramService.TelegramMod?
 
     /**
      * 群组
      */
-    fun getTelegramGroupFromChat(id: Long): TelegramService.TelegramGroup?
+    fun getTelegramMod(id: Long): TelegramService.TelegramGroup?
 
 }
 

@@ -54,15 +54,15 @@ class TelegramService(
     /**
      * 公开群组、频道、机器人
      */
-    fun getTelegramModFromWeb(username: String): TelegramMod? {
-        return telegramRepository.getTelegramModFromWeb(username)
+    fun getTelegramMod(username: String): TelegramMod? {
+        return telegramRepository.getTelegramMod(username)
     }
 
     /**
      * 群组
      */
-    fun getTelegramGroupFromChat(id: Long): TelegramGroup? {
-        return telegramRepository.getTelegramGroupFromChat(id)
+    fun getTelegramMod(id: Long): TelegramGroup? {
+        return telegramRepository.getTelegramMod(id)
     }
 
 }
