@@ -45,7 +45,7 @@ class TelegramService(
 
     data class TelegramPerson(
         val chatId: Long?,
-        override val username: String,
+        override val username: String?,
         override val title: String,
         override val description: String?
     ) : TelegramMod

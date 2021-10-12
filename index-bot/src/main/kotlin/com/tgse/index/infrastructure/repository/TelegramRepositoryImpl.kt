@@ -3,81 +3,23 @@ package com.tgse.index.infrastructure.repository
 import com.pengrad.telegrambot.model.Chat
 import com.pengrad.telegrambot.request.GetChat
 import com.pengrad.telegrambot.request.GetChatMembersCount
-import com.tgse.index.ProxyProperties
 import com.tgse.index.domain.repository.TelegramRepository
 import com.tgse.index.domain.service.TelegramService
 import com.tgse.index.infrastructure.provider.BotProvider
-import org.jsoup.Jsoup
 import org.slf4j.LoggerFactory
 import org.springframework.stereotype.Repository
-import java.net.InetSocketAddress
-import java.net.Proxy
-import java.util.*
 
 @Repository
 class TelegramRepositoryImpl(
-    private val botProvider: BotProvider,
-    private val proxyProperties: ProxyProperties
+    private val botProvider: BotProvider
 ) : TelegramRepository {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
 
-    private val proxy: Proxy? = run {
-        if (proxyProperties.enabled) {
-            val socketAddress = InetSocketAddress(proxyProperties.ip, proxyProperties.port)
-            Proxy(proxyProperties.type, socketAddress)
-        } else {
-            null
-        }
-    }
-
     /**
-     * 公开群组、频道、机器人
+     * 公开群组、频道
      */
     override fun getTelegramMod(username: String): TelegramService.TelegramMod? {
-        return getTelegramModFromWeb(username) ?: getTelegramModFromBot(username)
-    }
-
-    /**
-     * 公开群组、频道、机器人
-     */
-    private fun getTelegramModFromWeb(username: String): TelegramService.TelegramMod? {
-        return try {
-            if (username.isEmpty()) return null
-            val connect = Jsoup.connect("https://t.me/$username")
-            val doc =
-                if (proxyProperties.enabled) connect.proxy(proxy).get()
-                else connect.get()
-            val isNotFound = doc.select(".tgme_page_wrap .tgme_page .tgme_page_icon").html().contains("tgme_icon_user")
-            val title = doc.select(".tgme_page_wrap .tgme_page .tgme_page_title span").text()
-            val about = doc.select(".tgme_page_wrap .tgme_page .tgme_page_description").html()
-            val members = doc.select(".tgme_page_wrap .tgme_page .tgme_page_extra").text()
-
-            var fixedDescription: String? = about.replace("<[^>]+>".toRegex(), "")
-            fixedDescription = if (fixedDescription!!.isEmpty() || fixedDescription.isBlank()) null else fixedDescription
-            val fixedMembers = when {
-                members.contains(",") -> members.split(',')[0].replace("members", "").replace(" ","").toLong()
-                members.contains("subscriber") -> members.replace("subscribers", "").replace("subscriber", "").replace(" ","").toLong()
-                else -> 0L
-            }
-
-            when {
-                isNotFound -> null
-                members.contains("members") -> TelegramService.TelegramGroup(null, username, null, title, fixedDescription, fixedMembers)
-                members.contains("subscriber") -> TelegramService.TelegramChannel(username, title, fixedDescription, fixedMembers)
-                members.lowercase(Locale.getDefault()).endsWith("bot") -> TelegramService.TelegramBot(username, title, fixedDescription)
-                else -> TelegramService.TelegramPerson(null, username, title, fixedDescription)
-            }
-        } catch (t: Throwable) {
-            logger.error("get telegram info from web error,the telegram username is '$username'", t)
-            null
-        }
-    }
-
-    /**
-     * 公开群组、频道、机器人
-     */
-    private fun getTelegramModFromBot(username: String): TelegramService.TelegramMod? {
         return try {
             if (username.isEmpty()) return null
             val getChat = GetChat("@$username")
@@ -107,7 +49,7 @@ class TelegramRepositoryImpl(
                 else -> null
             }
         } catch (t: Throwable) {
-            logger.error("get telegram info from bot error,the telegram username is '$username'", t)
+            logger.error("get telegram info error,the telegram username is '$username'", t)
             null
         }
     }

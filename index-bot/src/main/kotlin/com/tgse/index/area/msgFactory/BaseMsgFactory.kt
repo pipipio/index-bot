@@ -74,6 +74,34 @@ abstract class BaseMsgFactory(
     /**
      * 整理列表内容
      */
+    protected fun generateListItem(record: RecordService.Record): String {
+        // 频道或群组图标
+        val icon = when (record.type) {
+            TelegramService.TelegramModType.Group -> "\uD83D\uDC65"
+            TelegramService.TelegramModType.Channel -> "\uD83D\uDCE2"
+            TelegramService.TelegramModType.Bot -> "\uD83E\uDD16"
+            else -> "❓"
+        }
+        // 成员数量
+        val members = when (record.type) {
+            TelegramService.TelegramModType.Group -> getMemberUnit(record.members!!)
+            TelegramService.TelegramModType.Channel -> getMemberUnit(record.members!!)
+            else -> ""
+        }
+        // 名称及地址
+        val title = record.title.replace("<".toRegex(), "&lt;").replace(">".toRegex(), "&gt;")
+        val display =
+            if (record.username != null)
+                "<a href='https://t.me/${record.username}'>${title}</a>\n"
+            else
+                "<a href='${record.link}'>${title}</a>\n"
+        // 最终
+        return "$icon $members | $display"
+    }
+
+    /**
+     * 整理列表内容
+     */
     protected fun generateEnrollItem(enroll: EnrollService.Enroll): String {
         // 频道或群组图标
         val icon = "⏳"

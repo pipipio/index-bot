@@ -1,6 +1,5 @@
 package com.tgse.index.area.msgFactory
 
-import com.pengrad.telegrambot.model.request.InlineKeyboardButton
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
 import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.request.EditMessageText
@@ -18,28 +17,18 @@ class BulletinMsgFactory(
 
     fun makeBulletinMsg(chatId: Long, record: RecordService.Record): SendMessage {
         val detail = makeRecordDetail(record)
-        val keyboard = makePointKeyboardMarkup(record.uuid)
-        return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+        return SendMessage(chatId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true)
     }
 
     fun makeBulletinMsg(chatId: Long, messageId: Int, record: RecordService.Record): EditMessageText {
         val detail = makeRecordDetail(record)
-        val keyboard = makePointKeyboardMarkup(record.uuid)
-        return EditMessageText(chatId, messageId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true).replyMarkup(keyboard)
+        return EditMessageText(chatId, messageId, detail).parseMode(ParseMode.HTML).disableWebPagePreview(true)
     }
 
     fun makeRemovedBulletinMsg(chatId: Long, messageId: Int): EditMessageText {
         val text = replyService.messages["record-removed"]
         val keyboard = InlineKeyboardMarkup()
         return EditMessageText(chatId, messageId, text).replyMarkup(keyboard)
-    }
-
-    private fun makePointKeyboardMarkup(enrollUUID: String): InlineKeyboardMarkup {
-        return InlineKeyboardMarkup(
-            arrayOf(
-                InlineKeyboardButton("查询").url("https://t.me/${botProvider.username}?start=$enrollUUID")
-            )
-        )
     }
 
 }

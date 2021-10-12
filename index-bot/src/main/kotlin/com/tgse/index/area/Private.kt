@@ -64,8 +64,6 @@ class Private(
                                     enrollExecute.executeByStatus(EnrollExecute.Type.Enroll, request)
                                 else if (callbackData.startsWith("update"))
                                     recordExecute.executeByStatus(request)
-                                else
-                                    executeByStatus(EnrollExecute.Type.Enroll, request)
                             } catch (e: Throwable) {
                                 awaitStatusService.clearAwaitStatus(request.chatId)
                             }
@@ -216,7 +214,6 @@ class Private(
             cmd.startsWith("start ") -> executeBySuperCommand(request)
             cmd == "enroll" -> normalMsgFactory.makeReplyMsg(request.chatId, cmd)
             cmd == "update" || cmd == "mine" -> mineMsgFactory.makeListFirstPageMsg(request.update.message().from())
-            cmd == "list" -> normalMsgFactory.makeListReplyMsg(request.chatId)
             cmd == "setting" -> normalMsgFactory.makeReplyMsg(request.chatId, "only-group")
             cmd == "help" -> normalMsgFactory.makeReplyMsg(request.chatId, "help-private")
             cmd == "cancel" -> {
@@ -265,29 +262,6 @@ class Private(
                 val msg = mineMsgFactory.makeListNextPageMsg(user, request.messageId!!, pageIndex)
                 botProvider.send(msg)
             }
-            callbackData.startsWith("feedback") -> {
-                awaitStatusService.setAwaitStatus(request.chatId, AwaitStatusService.Await(request.messageId!!, callbackData))
-                val msg = normalMsgFactory.makeReplyMsg(request.chatId, "feedback-start")
-                botProvider.send(msg)
-            }
-        }
-    }
-
-    fun executeByStatus(type: EnrollExecute.Type, request: RequestService.BotRequest) {
-        val statusCallbackData = awaitStatusService.getAwaitStatus(request.chatId!!)!!.callbackData
-        when {
-            statusCallbackData.startsWith("feedback:") -> {
-                val recordUUID = statusCallbackData.replace("feedback:", "")
-                val record = recordService.getRecord(recordUUID)!!
-                val user = request.update.message().from()
-                val content = request.update.message().text()
-                val feedback = Triple(record, user, content)
-                requestService.feedbackSubject.onNext(feedback)
-                // 清除状态
-                awaitStatusService.clearAwaitStatus(request.chatId!!)
-                val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "feedback-finish")
-                botProvider.send(msg)
-            }
         }
     }
 
@@ -295,8 +269,7 @@ class Private(
         try {
             userService.footprint(user.id().toLong())
         } catch (e: Throwable) {
-            botProvider.sendErrorMessage(e)
-            e.printStackTrace()
+            logger.warn("记录足迹失败：(${e::class.java})[${e.message}]")
         }
     }
 

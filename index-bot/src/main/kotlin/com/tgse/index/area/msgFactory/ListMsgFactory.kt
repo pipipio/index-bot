@@ -37,7 +37,7 @@ class ListMsgFactory(
         if (totalCount == 0L) return null
         val sb = StringBuffer()
         records.forEach {
-            val item = generateRecordItem(it)
+            val item = generateListItem(it)
             sb.append(item)
         }
         val keyboard = makeListPageKeyboardMarkup(keywords, totalCount, pageIndex, perPageSize, range)
@@ -50,7 +50,7 @@ class ListMsgFactory(
         val (records, totalCount) = searchList(keywords, range.first)
         val sb = StringBuffer()
         records.forEach {
-            val item = generateRecordItem(it)
+            val item = generateListItem(it)
             sb.append(item)
         }
         val keyboard = makeListPageKeyboardMarkup(keywords, totalCount, pageIndex, perPageSize, range)

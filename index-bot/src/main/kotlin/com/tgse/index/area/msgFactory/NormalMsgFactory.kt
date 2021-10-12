@@ -18,6 +18,12 @@ class NormalMsgFactory(
     override val botProvider: BotProvider
 ) : BaseMsgFactory(replyService, botProvider) {
 
+    fun makeStartMsg(chatId: Long): SendMessage {
+        val content = replyService.messages["start"]!!.replace("\\{bot.username\\}".toRegex(), botProvider.username)
+        val keyboard = makeReplyKeyboardMarkup()
+        return SendMessage(chatId, content).disableWebPagePreview(false).replyMarkup(keyboard)
+    }
+
     fun makeClearMarkupMsg(chatId: Long, messageId: Int): EditMessageReplyMarkup {
         return EditMessageReplyMarkup(chatId, messageId).replyMarkup(InlineKeyboardMarkup())
     }
@@ -37,11 +43,6 @@ class NormalMsgFactory(
                 .replace("\\{countOfUser\\}".toRegex(), countOfUser.toString())
                 .replace("\\{countOfRecord\\}".toRegex(), countOfRecord.toString())
         )
-    }
-
-    fun makeListReplyMsg(chatId: Long): SendMessage {
-        val keyboard = makeReplyKeyboardMarkup()
-        return SendMessage(chatId, replyService.messages["list"]!!).replyMarkup(keyboard)
     }
 
     fun makeBlacklistJoinedReplyMsg(

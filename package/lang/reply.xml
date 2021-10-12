@@ -10,7 +10,7 @@
 
             收录信息及时知：&lt;a href="https://t.me/zh_secretary" &gt;SE-索引公告板&lt;/a&gt;
 
-            使用 /list 命令开始查询。
+            请选择一个分类或回复关键词进行查询。
         </content>
     </msg>
     <msg>
@@ -58,9 +58,11 @@
             enroll
         </type>
         <content>
-            提交收录申请前，请先看&lt;a href="https://t.me/zh_secretary/2"&gt;收录规则&lt;/a&gt;。
-            &lt;b&gt;群组：&lt;/b&gt;请将机器人添加至群组中，使用 /enroll@{bot.username} 命令收录；
-            &lt;b&gt;频道、bot：&lt;/b&gt;请直接发送用户名，例：
+            &lt;b&gt;群组：&lt;/b&gt;请将机器人添加至群组中，然后在群组中使用 /enroll@{bot.username} 命令收录；
+            &lt;b&gt;频道：&lt;/b&gt;请直接发送频道用户名或链接；
+            &lt;b&gt;bot：&lt;/b&gt;不支持收录。
+			
+            例：
 
             @se_talk
             https://t.me/se_talk
@@ -158,14 +160,6 @@
         </type>
         <content>
             收录信息已被移除
-        </content>
-    </msg>
-    <msg>
-        <type>
-            list
-        </type>
-        <content>
-            请选择一个您感兴趣的分类，或直接发送关键词进行查询。
         </content>
     </msg>
     <msg>
@@ -281,22 +275,6 @@
         </type>
         <content>
             因违反用户使用协议，近期内不受理此{type}的收录申请。
-        </content>
-    </msg>
-    <msg>
-        <type>
-            feedback-start
-        </type>
-        <content>
-            麻烦请告知反馈原由（文字）,使用 /cancel 命令取消。
-        </content>
-    </msg>
-    <msg>
-        <type>
-            feedback-finish
-        </type>
-        <content>
-            我们已收到您的反馈信息，感谢！
         </content>
     </msg>
     <msg>

@@ -79,30 +79,10 @@ class RecordService(
 
 
     fun getRecord(uuid: String): Record? {
-        val record = recordRepository.getRecord(uuid) ?: return null
-        try {
-            // 24小时后更新人数信息
-            val isOver24Hours = record.updateTime < Date().time - 24 * 60 * 60 * 1000
-            val isHasMembers = record.members != null
-            return if (isOver24Hours && isHasMembers) {
-                val telegramMod =
-                    if (record.username != null) telegramRepository.getTelegramMod(record.username)
-                    else telegramRepository.getTelegramMod(record.chatId!!)
-
-                val members = when (telegramMod) {
-                    is TelegramService.TelegramChannel -> telegramMod.members
-                    is TelegramService.TelegramGroup -> telegramMod.members
-                    else -> 0L
-                }
-
-                val newRecord = record.copy(members = members)
-                updateRecord(newRecord)
-                newRecord
-            } else {
-                record
-            }
+        return try {
+            recordRepository.getRecord(uuid) ?: return null
         } catch (e: Throwable) {
-            return record
+            null
         }
     }
 
