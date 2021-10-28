@@ -64,6 +64,8 @@ class Private(
                                     enrollExecute.executeByStatus(EnrollExecute.Type.Enroll, request)
                                 else if (callbackData.startsWith("update"))
                                     recordExecute.executeByStatus(request)
+                                else
+                                    executeByStatus(EnrollExecute.Type.Enroll, request)
                             } catch (e: Throwable) {
                                 awaitStatusService.clearAwaitStatus(request.chatId)
                             }
@@ -210,7 +212,7 @@ class Private(
         val cmd = request.update.message().text().replaceFirst("/", "").replace("@${botProvider.username}", "")
         // 回执
         val sendMessage = when {
-            cmd == "start" -> normalMsgFactory.makeReplyMsg(request.chatId, "start")
+            cmd == "start" -> normalMsgFactory.makeStartMsg(request.chatId)
             cmd.startsWith("start ") -> executeBySuperCommand(request)
             cmd == "enroll" -> normalMsgFactory.makeReplyMsg(request.chatId, cmd)
             cmd == "update" || cmd == "mine" -> mineMsgFactory.makeListFirstPageMsg(request.update.message().from())
@@ -260,6 +262,29 @@ class Private(
                 val pageIndex = callbackData.replace("mine:", "").toInt()
                 val user = request.update.callbackQuery().from()
                 val msg = mineMsgFactory.makeListNextPageMsg(user, request.messageId!!, pageIndex)
+                botProvider.send(msg)
+            }
+            callbackData.startsWith("feedback") -> {
+                awaitStatusService.setAwaitStatus(request.chatId, AwaitStatusService.Await(request.messageId!!, callbackData))
+                val msg = normalMsgFactory.makeReplyMsg(request.chatId, "feedback-start")
+                botProvider.send(msg)
+            }
+        }
+    }
+
+    fun executeByStatus(type: EnrollExecute.Type, request: RequestService.BotRequest) {
+        val statusCallbackData = awaitStatusService.getAwaitStatus(request.chatId!!)!!.callbackData
+        when {
+            statusCallbackData.startsWith("feedback:") -> {
+                val recordUUID = statusCallbackData.replace("feedback:", "")
+                val record = recordService.getRecord(recordUUID)!!
+                val user = request.update.message().from()
+                val content = request.update.message().text()
+                val feedback = Triple(record, user, content)
+                requestService.feedbackSubject.onNext(feedback)
+                // 清除状态
+                awaitStatusService.clearAwaitStatus(request.chatId!!)
+                val msg = normalMsgFactory.makeReplyMsg(request.chatId!!, "feedback-finish")
                 botProvider.send(msg)
             }
         }

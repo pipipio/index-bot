@@ -37,5 +37,6 @@ out/
 .vscode/
 
 index-bot/log/
+index-bot/libs/
 package/log/
 package/data/

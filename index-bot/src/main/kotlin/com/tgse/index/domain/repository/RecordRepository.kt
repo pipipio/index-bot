@@ -5,6 +5,8 @@ import com.tgse.index.domain.service.RecordService
 
 interface RecordRepository {
 
+    fun getAllRecords(from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long>
+
     fun searchRecordsByClassification(classification: String, from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long>
     fun searchRecordsByKeyword(keyword: String, from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long>
     fun searchRecordsByCreator(user: User, from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long>

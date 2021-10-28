@@ -82,6 +82,7 @@ abstract class BaseMsgFactory(
             TelegramService.TelegramModType.Bot -> "\uD83E\uDD16"
             else -> "❓"
         }
+        val operate = "<a href='https://t.me/${botProvider.username}?start=${record.uuid}'>${icon}</a>"
         // 成员数量
         val members = when (record.type) {
             TelegramService.TelegramModType.Group -> getMemberUnit(record.members!!)
@@ -96,7 +97,7 @@ abstract class BaseMsgFactory(
             else
                 "<a href='${record.link}'>${title}</a>\n"
         // 最终
-        return "$icon $members | $display"
+        return "$operate $members | $display"
     }
 
     /**

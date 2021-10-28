@@ -62,7 +62,7 @@ class RequestService(
         update
     )
 
-    private val logger = LoggerFactory.getLogger(Group::class.java)
+    private val logger = LoggerFactory.getLogger(this::class.java)
     private val requestSubject = BehaviorSubject.create<BotRequest>()
     val requestObservable: Observable<BotRequest> = requestSubject.distinct()
     val feedbackSubject = BehaviorSubject.create<Triple<RecordService.Record, User, String>>()

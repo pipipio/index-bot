@@ -1,0 +1,57 @@
+# log
+logging:
+  file:
+    path: ./log/
+    name: ./log/output.log
+  level:
+    root: info
+
+# bot
+bot:
+  creator: 123456789
+  token: bot123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+
+# elasticsearch
+elastic:
+  hostname: localhost
+  schema: http
+  port: 9200
+
+# 代理
+proxy:
+  ip: 127.0.0.1
+  port: 7890
+  enabled: false
+  type: SOCKS
+
+# 索引公告频道id
+channel:
+  bulletin:
+    id: 
+# 审核群组id
+group:
+  approve:
+    id: 
+secretary:
+  # 群组中BOT消息自销毁周期
+  # 单位：秒
+  autoDeleteMsgCycle: 30
+  list:
+    # 每页多少条
+    size: 30
+  memory:
+    # 内存中暂存多少秒
+    cycle: 30
+    # 内存中暂存多少条，用于提升响应效率
+    size: 100
+  # 用于更新频道人数的 bot
+  # 由于收录频道无需将bot添加至频道中，因此，需要bot来获取
+  # 每个 bot 每天只能通过 telegram api 获取 200 个 频道/群组 的信息
+  # 我们可能收录数千万个频道，因此，我们需要更多的 bot
+  poppy-bot: >
+    bot123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11,
+    bot123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11
+user:
+  footprint:
+    # N秒内记录一次用户，用户统计用户总量、日增、日活
+    cycle: 600

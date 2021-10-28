@@ -101,6 +101,18 @@ class RecordRepositoryImpl(
     }
 
     /**
+     * 查询所有
+     */
+    override fun getAllRecords(from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long> {
+        val searchRequest = SearchRequest(index)
+        val searchSourceBuilder = SearchSourceBuilder()
+        val queryBuilder = QueryBuilders.matchAllQuery()
+        searchSourceBuilder.query(queryBuilder).from(from).size(size).sort("updateTime", SortOrder.ASC)
+        searchRequest.source(searchSourceBuilder)
+        return searchRecords(searchRequest)
+    }
+
+    /**
      * 根据分类查询
      */
     override fun searchRecordsByClassification(classification: String, from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long> {
@@ -109,15 +121,7 @@ class RecordRepositoryImpl(
         val queryBuilder = QueryBuilders.matchQuery("classification", classification)
         searchSourceBuilder.query(queryBuilder).from(from).size(size).sort("members", SortOrder.DESC)
         searchRequest.source(searchSourceBuilder)
-        val response = elasticsearchProvider.search(searchRequest)
-
-        val records = arrayListOf<RecordService.Record>()
-        response.hits.hits.forEach {
-            val record = generateRecordFromHashMap(it.id, it.sourceAsMap)
-            records.add(record)
-        }
-        val totalCount = response.hits.totalHits?.value ?: 0L
-        return Pair(records.toMutableList(), totalCount)
+        return searchRecords(searchRequest)
     }
 
     /**
@@ -127,29 +131,25 @@ class RecordRepositoryImpl(
         val searchRequest = SearchRequest(index)
         val searchSourceBuilder = SearchSourceBuilder()
         val queryBuilder = QueryBuilders.multiMatchQuery(keyword, "title", "tags", "classification")
-        searchSourceBuilder.query(queryBuilder).from(from).size(size).sort("members", SortOrder.DESC)
+        searchSourceBuilder.query(queryBuilder).from(from).size(size).sort("_score", SortOrder.DESC).sort("members", SortOrder.DESC)
         searchRequest.source(searchSourceBuilder)
-        val response = elasticsearchProvider.search(searchRequest)
-
-        val records = arrayListOf<RecordService.Record>()
-        response.hits.hits.forEach {
-            val record = generateRecordFromHashMap(it.id, it.sourceAsMap)
-            records.add(record)
-        }
-        val totalCount = response.hits.totalHits?.value ?: 0L
-        return Pair(records.toMutableList(), totalCount)
+        return searchRecords(searchRequest)
     }
 
     /**
      * 根据提交者查询
      */
     override fun searchRecordsByCreator(user: User, from: Int, size: Int): Pair<MutableList<RecordService.Record>, Long> {
-        try {
-            val searchRequest = SearchRequest(index)
-            val searchSourceBuilder = SearchSourceBuilder()
-            val queryBuilder = QueryBuilders.matchQuery("createUser", user.id())
-            searchSourceBuilder.query(queryBuilder).from(from).size(size).sort("createTime", SortOrder.DESC)
-            searchRequest.source(searchSourceBuilder)
+        val searchRequest = SearchRequest(index)
+        val searchSourceBuilder = SearchSourceBuilder()
+        val queryBuilder = QueryBuilders.matchQuery("createUser", user.id())
+        searchSourceBuilder.query(queryBuilder).from(from).size(size).sort("createTime", SortOrder.DESC)
+        searchRequest.source(searchSourceBuilder)
+        return searchRecords(searchRequest)
+    }
+
+    private fun searchRecords(searchRequest: SearchRequest): Pair<MutableList<RecordService.Record>, Long> {
+        return try {
             val response = elasticsearchProvider.search(searchRequest)
 
             val records = arrayListOf<RecordService.Record>()
@@ -158,9 +158,9 @@ class RecordRepositoryImpl(
                 records.add(record)
             }
             val totalCount = response.hits.totalHits?.value ?: 0L
-            return Pair(records.toMutableList(), totalCount)
+            Pair(records.toMutableList(), totalCount)
         } catch (e: Throwable) {
-            return Pair(mutableListOf(), 0L)
+            Pair(mutableListOf(), 0L)
         }
     }
 

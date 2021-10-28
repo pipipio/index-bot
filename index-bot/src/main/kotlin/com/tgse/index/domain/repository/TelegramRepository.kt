@@ -5,6 +5,8 @@ import com.tgse.index.domain.service.TelegramService
 
 interface TelegramRepository {
 
+    fun reset ()
+
     /**
      * 公开群组、频道、机器人
      */

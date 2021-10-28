@@ -54,6 +54,7 @@ class NormalMsgFactory(
         return SendMessage(
             chatId,
             replyService.messages[replyType]!!
+                .replace("\\{code\\}".toRegex(), black.chatId?.toString() ?: black.username!!)
                 .replace("\\{manager\\}".toRegex(), manager)
                 .replace("\\{black\\}".toRegex(), black.displayName)
         )

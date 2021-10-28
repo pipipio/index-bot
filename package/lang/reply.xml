@@ -183,7 +183,7 @@
             help-private
         </type>
         <content>
-            ES-索引秘书可以根据类型、关键字为您提供已收录的信息，您也可以使用 /enroll 查看如何提交收录申请。
+            SE-索引秘书可以根据类型、关键字为您提供已收录的信息，您也可以使用 /enroll 查看如何提交收录申请。
         </content>
     </msg>
     <msg>
@@ -248,6 +248,7 @@
             blacklist-join
         </type>
         <content>
+            #{code}
             执行者：{manager}
             {black}已被加入黑名单。
         </content>
@@ -275,6 +276,22 @@
         </type>
         <content>
             因违反用户使用协议，近期内不受理此{type}的收录申请。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            feedback-start
+        </type>
+        <content>
+            麻烦请告知反馈原由（文字）,使用 /cancel 命令取消。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            feedback-finish
+        </type>
+        <content>
+            我们已收到您的反馈信息，感谢！
         </content>
     </msg>
     <msg>
