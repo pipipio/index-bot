@@ -39,7 +39,7 @@ dependencies {
     implementation("io.reactivex.rxjava3:rxjava:3.0.13")
 
     // telegram
-    api("com.github.pengrad:java-telegram-bot-api:5.2.0")
+    api("com.github.pengrad:java-telegram-bot-api:5.4.0")
     // await status
     implementation("org.ethereum:leveldbjni-all:1.18.3")
     // elasticsearch

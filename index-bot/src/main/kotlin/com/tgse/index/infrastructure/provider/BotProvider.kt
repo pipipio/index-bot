@@ -162,7 +162,7 @@ class BotProvider(
         return bot.execute(action)
     }
 
-    fun send(action: GetChatMembersCount): GetChatMembersCountResponse {
+    fun send(action: GetChatMemberCount): GetChatMemberCountResponse {
         return bot.execute(action)
     }
 

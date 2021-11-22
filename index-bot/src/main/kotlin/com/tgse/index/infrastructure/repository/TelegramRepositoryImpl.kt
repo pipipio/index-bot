@@ -3,7 +3,7 @@ package com.tgse.index.infrastructure.repository
 import com.pengrad.telegrambot.TelegramBot
 import com.pengrad.telegrambot.model.Chat
 import com.pengrad.telegrambot.request.GetChat
-import com.pengrad.telegrambot.request.GetChatMembersCount
+import com.pengrad.telegrambot.request.GetChatMemberCount
 import com.tgse.index.ProxyProperties
 import com.tgse.index.domain.repository.TelegramRepository
 import com.tgse.index.domain.service.TelegramService
@@ -15,7 +15,6 @@ import org.springframework.stereotype.Repository
 import java.net.InetSocketAddress
 import java.net.Proxy
 import javax.annotation.PostConstruct
-import javax.annotation.PreDestroy
 
 @Repository
 class TelegramRepositoryImpl(
@@ -25,8 +24,11 @@ class TelegramRepositoryImpl(
     private val poppyTokens: List<String>
 ) : TelegramRepository {
 
+    private val tooManyRequestRegex = """^Too Many Requests:.*""".toRegex()
+    private val chatNotFoundRegex = """^Bad Request: chat not found$""".toRegex()
+
     private val logger = LoggerFactory.getLogger(this::class.java)
-    private val poppies = mutableMapOf<TelegramBot, Int>()
+    private val poppies = mutableListOf<TelegramBot>()
 
     @PostConstruct
     private fun init() {
@@ -41,38 +43,8 @@ class TelegramRepositoryImpl(
             } else {
                 TelegramBot(tokens)
             }
-            poppies[bot] = 0
+            poppies.add(bot)
         }
-    }
-
-    /**
-     * 重置获取信息的额度
-     *
-     * 每个 bot 每天只有 200 个获取信息的额度
-     */
-    override fun reset (){
-        poppies.forEach {
-            poppies[it.key] = 0
-        }
-    }
-
-    /**
-     * 获取有额度的 bot
-     */
-    private fun getFreePoppy(): TelegramBot? {
-        poppies.forEach {
-            if (it.value < 200)
-                return it.key
-        }
-        return null
-    }
-
-    /**
-     * 获取有额度的 bot
-     */
-    private fun recordPoppy(bot: TelegramBot) {
-        poppies[bot] ?: return
-        poppies[bot] = poppies[bot]!! + 1
     }
 
     /**
@@ -82,33 +54,49 @@ class TelegramRepositoryImpl(
         return try {
             if (username.isEmpty()) return null
             val getChat = GetChat("@$username")
-            val poppy = getFreePoppy() ?: return null
-            val getChatResponse = poppy.execute(getChat)
-            val chat = getChatResponse.chat() ?: return null
-            recordPoppy(poppy)
-            val getChatMembersCount = GetChatMembersCount("@$username")
-            val getChatMembersCountResponse = botProvider.send(getChatMembersCount)
-            val membersCount = getChatMembersCountResponse.count() ?: 0
+            val getChatMembersCount = GetChatMemberCount("@$username")
+            poppies.forEach { poppy ->
+                val getChatResponse = poppy.execute(getChat)
+                if (!getChatResponse.isOk) {
+                    val description = getChatResponse.description() ?: return null
+                    tooManyRequestRegex.find(description)?.let {
+                        return@forEach
+                    }
+                    chatNotFoundRegex.find(description)?.let {
+                        return null
+                    }
+                }
+                val chat = getChatResponse.chat() ?: return null
+                val getChatMembersCountResponse = botProvider.send(getChatMembersCount)
+                if (!getChatMembersCountResponse.isOk) {
+                    val description = getChatResponse.description() ?: return null
+                    tooManyRequestRegex.find(description)?.let {
+                        return@forEach
+                    }
+                }
+                val membersCount = getChatMembersCountResponse.count() ?: 0
 
-            return when (chat.type()) {
-                Chat.Type.group, Chat.Type.supergroup ->
-                    TelegramService.TelegramGroup(
-                        chat.id(),
-                        username,
-                        chat.inviteLink(),
-                        chat.title(),
-                        chat.description(),
-                        membersCount.toLong()
-                    )
-                Chat.Type.channel ->
-                    TelegramService.TelegramChannel(
-                        username,
-                        chat.title(),
-                        chat.description(),
-                        membersCount.toLong()
-                    )
-                else -> null
+                return when (chat.type()) {
+                    Chat.Type.group, Chat.Type.supergroup ->
+                        TelegramService.TelegramGroup(
+                            chat.id(),
+                            username,
+                            chat.inviteLink(),
+                            chat.title(),
+                            chat.description(),
+                            membersCount.toLong()
+                        )
+                    Chat.Type.channel ->
+                        TelegramService.TelegramChannel(
+                            username,
+                            chat.title(),
+                            chat.description(),
+                            membersCount.toLong()
+                        )
+                    else -> null
+                }
             }
+            null
         } catch (t: Throwable) {
             logger.error("get telegram info error,the telegram username is '$username'", t)
             null
@@ -121,9 +109,9 @@ class TelegramRepositoryImpl(
     override fun getTelegramMod(id: Long): TelegramService.TelegramGroup? {
         return try {
             val getChat = GetChat(id)
-            val chat = botProvider.send(getChat).chat()?: return null
+            val chat = botProvider.send(getChat).chat() ?: return null
 
-            val getChatMembersCount = GetChatMembersCount(id)
+            val getChatMembersCount = GetChatMemberCount(id)
             val count = botProvider.send(getChatMembersCount).count()
 
             val link = if (chat.username() != null) null else chat.inviteLink()

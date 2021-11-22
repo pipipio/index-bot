@@ -16,11 +16,11 @@ class SyncMembersService(
 
     @Scheduled(cron = "0 0 6 * * ?")
     fun doing() {
-        telegramRepository.reset()
+        logger.info("开始 ----> 更新成员数量")
         val size = 100
         var cursor = 0
+        var counter = 0
         while (true) {
-            logger.info("更新 群组/频道 成员数量开始")
             val (records, total) = recordRepository.getAllRecords(cursor, size)
             cursor += size
             if (records.size == 0) break
@@ -47,9 +47,10 @@ class SyncMembersService(
                 }
 
                 recordRepository.updateRecord(newRecord)
+                counter++
             }
         }
-        logger.info("更新 群组/频道 成员数量结束")
+        logger.info("结束 ----> 更新成员数量：已更新${counter}条数据")
     }
 
 }
