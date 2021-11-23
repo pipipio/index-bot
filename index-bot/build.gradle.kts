@@ -43,7 +43,7 @@ dependencies {
     // await status
     implementation("org.ethereum:leveldbjni-all:1.18.3")
     // elasticsearch
-    implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.12.0")
+    implementation("org.elasticsearch.client:elasticsearch-rest-high-level-client:7.15.2")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

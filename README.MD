@@ -1,16 +1,7 @@
-Telegram index bot
-for find group,channel,bot
+# Telegram 索引机器人
+在线示例：https://t.me/zh_secretary_bot
 
+### 运行环境 
+1. elasticsearch 7.12.0
+2. jdk 11
 
-
-vim setup.sh 
-``` shell
-user="myuser"
-```
-
-
-``` shell
-chmod +x ./setup.sh
-./setup.sh
-sudo ./setup.sh install
-```

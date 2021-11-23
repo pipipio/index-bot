@@ -15,7 +15,7 @@ bot:
 elastic:
   hostname: localhost
   schema: http
-  port: 9200
+  port: 9900
 
 # 代理
 proxy:

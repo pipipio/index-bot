@@ -22,22 +22,59 @@ jobs:
           java-version: "11"
           distribution: "adopt"
 
+      # 下载资源文件
+      # java: https://cloud.scomarlf.com/s/g0UW?path=%2F
+      - name: Download resource
+        run: |
+          mkdir resource
+          cd resource
+          curl -O https://artifacts.elastic.co/downloads/elasticsearch/elasticsearch-7.15.2-linux-x86_64.tar.gz
+          curl -L https://github.com/medcl/elasticsearch-analysis-ik/releases/download/v7.15.2/elasticsearch-analysis-ik-7.15.2.zip > elasticsearch-analysis-ik-7.15.2.zip
+          wget https://cloud.scomarlf.com/api/v3/file/get/88/jdk-11.0.12_linux-x64_bin.tar.gz?sign=qPVwbwDWfM7TNCmZa3Qt9pimJ6dtFaitkn-T2yOgIUA%3D%3A0 --no-check-certificate -O ./jdk-11.0.12_linux-x64_bin.tar.gz
+          ls
+
       - name: Build with Gradle
         run: |
           cd index-bot
           chmod +x gradlew
           ./gradlew bootJar
 
+      - name: RPM Ready
+        run: |
+          rm -rf ~/rpmbuild
+          mkdir -pv ~/rpmbuild/{BUILD,BUILDROOT,RPMS,SOURCES,SPECS,SRPMS}
+
       - name: Move files
         run: |
-          mkdir -p artifacts
-          mv package/setup.sh artifacts/
-          mv package/lang artifacts/
-          mv index-bot/build/libs/telegram-index-bot-2.0.0.jar artifacts/
-          mv index-bot/src/main/resources/application.properties artifacts/
+          mkdir -p ~/rpmbuild/BUILD/bot
+          mv package/config ~/rpmbuild/BUILD/
+          mv package/lang ~/rpmbuild/BUILD/bot/
+          mv package/data ~/rpmbuild/BUILD/bot/
+          mv index-bot/build/libs/telegram-index-bot-2.0.0.jar ~/rpmbuild/BUILD/bot/
+          mv index-bot/src/main/resources/application.yaml ~/rpmbuild/BUILD/bot/
+
+          mv resource/elasticsearch-7.15.2-linux-x86_64.tar.gz ~/rpmbuild/BUILD/
+          mv resource/elasticsearch-analysis-ik-7.15.2.zip ~/rpmbuild/BUILD/
+          mv resource/jdk-11.0.12_linux-x64_bin.tar.gz ~/rpmbuild/BUILD/
+
+          mv package/index-bot-elasticsearch.service ~/rpmbuild/BUILD/
+          mv package/index-bot.service ~/rpmbuild/BUILD/
+
+          mv package/ReadMe.md ~/rpmbuild/BUILD/
+          mv package/build.spec ~/rpmbuild/SPECS/
+
+          echo "~/rpmbuild/BUILD/"
+          ls ~/rpmbuild/BUILD/
+          echo "~/rpmbuild/BUILD/bot"
+          ls ~/rpmbuild/BUILD/bot
+
+      - name: RPM Build
+        run: |
+          rpmbuild -bb ~/rpmbuild/SPECS/build.spec
+          ls ~/rpmbuild/RPMS/x86_64
 
       - name: Publish artifacts
         uses: actions/upload-artifact@v2
         with:
           name: telegram-index-bot
-          path: artifacts/*
+          path: ~/rpmbuild/RPMS/x86_64/*
