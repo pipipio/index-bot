@@ -8,14 +8,12 @@ import com.tgse.index.area.execute.EnrollExecute
 import com.tgse.index.area.msgFactory.NormalMsgFactory
 import com.tgse.index.area.msgFactory.RecordMsgFactory
 import com.tgse.index.domain.repository.nick
+import com.tgse.index.domain.service.*
 import com.tgse.index.infrastructure.provider.BotProvider
-import com.tgse.index.domain.service.AwaitStatusService
-import com.tgse.index.domain.service.EnrollService
-import com.tgse.index.domain.service.RecordService
-import com.tgse.index.domain.service.RequestService
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.stereotype.Service
+import java.util.*
 
 @Service
 class Approve(
@@ -23,6 +21,7 @@ class Approve(
     private val blacklistExecute: BlacklistExecute,
     private val botProvider: BotProvider,
     private val requestService: RequestService,
+    private val banListService: BanListService,
     private val enrollService: EnrollService,
     private val recordService: RecordService,
     private val awaitStatusService: AwaitStatusService,
@@ -34,6 +33,8 @@ class Approve(
     private val autoDeleteMsgCycle: Long
 ) {
     private val logger = LoggerFactory.getLogger(Approve::class.java)
+
+    private val commandRegex = """^/(\w+)@(\w+bot)\s*(.+)?""".toRegex()
 
     init {
         subscribeUpdate()
@@ -49,6 +50,7 @@ class Approve(
                 try {
                     if (request !is RequestService.BotApproveRequest) return@subscribe
                     // 回执
+                    val commandRegexResult = commandRegex.find(request.update.message().text())
                     when {
                         request.update.callbackQuery() != null -> {
                             botProvider.sendTyping(request.chatId)
@@ -58,10 +60,14 @@ class Approve(
                             botProvider.sendTyping(request.chatId)
                             enrollExecute.executeByStatus(EnrollExecute.Type.Approve, request)
                         }
-                        request.update.message().text().startsWith("/") && request.update.message().text()
-                            .endsWith("@${botProvider.username}") -> {
+                        commandRegexResult != null -> {
+                            val botUsername = commandRegexResult.groupValues[2]
+                            val command = commandRegexResult.groupValues[1]
+                            val parameter = commandRegexResult.groupValues[3].ifEmpty { null }
+
+                            if (botUsername != botProvider.username) return@subscribe
                             botProvider.sendTyping(request.chatId)
-                            executeByCommand(request)
+                            executeByCommand(request.chatId, command, parameter)
                         }
                     }
                 } catch (e: Throwable) {
@@ -86,7 +92,7 @@ class Approve(
                 try {
                     val recordMsg = recordMsgFactory.makeFeedbackMsg(approveGroupChatId, record)
                     botProvider.send(recordMsg)
-                    val feedbackMsg = SendMessage(approveGroupChatId, "用户：${user.nick()}\n反馈：$content")
+                    val feedbackMsg = SendMessage(approveGroupChatId, "ID：${user.id()}\n用户：${user.nick()}\n反馈：$content")
                     botProvider.send(feedbackMsg)
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
@@ -145,7 +151,11 @@ class Approve(
         recordService.deleteRecordObservable.subscribe(
             { next ->
                 try {
-                    val msg = normalMsgFactory.makeRemoveRecordReplyMsg(approveGroupChatId, next.second.nick(), next.first.title)
+                    val msg = normalMsgFactory.makeRemoveRecordReplyMsg(
+                        approveGroupChatId,
+                        next.second.nick(),
+                        next.first.title
+                    )
                     botProvider.send(msg)
                 } catch (e: Throwable) {
                     botProvider.sendErrorMessage(e)
@@ -163,15 +173,35 @@ class Approve(
         )
     }
 
-    private fun executeByCommand(request: RequestService.BotApproveRequest) {
-        // 获取命令内容
-        val cmd = request.update.message().text().replaceFirst("/", "").replace("@${botProvider.username}", "")
+    private fun executeByCommand(chatId: Long, command: String, parameter: String?) {
         // 回执
-        val sendMessage = when (cmd) {
-            "start", "enroll", "update", "setting", "help" -> normalMsgFactory.makeReplyMsg(request.chatId, "disable")
-            "list" -> normalMsgFactory.makeReplyMsg(request.chatId, "disable")
-            "mine" -> normalMsgFactory.makeReplyMsg(request.chatId, "only-private")
-            else -> normalMsgFactory.makeReplyMsg(request.chatId, "can-not-understand")
+        val sendMessage = when (command) {
+            "start", "enroll", "update", "setting", "help" -> normalMsgFactory.makeReplyMsg(chatId, "disable")
+            "list" -> normalMsgFactory.makeReplyMsg(chatId, "disable")
+            "mine" -> normalMsgFactory.makeReplyMsg(chatId, "only-private")
+            "ban" -> {
+                if (parameter == null || """^[-\d]\d*$""".toRegex().find(parameter) == null) {
+                    normalMsgFactory.makeReplyMsg(chatId, "ban-parameter")
+                } else {
+                    val ban = BanListService.Ban(UUID.randomUUID().toString(), parameter.toLong(), Date().time)
+                    banListService.add(ban)
+                    normalMsgFactory.makeBanReplyMsg(chatId, "ban-success", parameter)
+                }
+            }
+            "unban" -> {
+                if (parameter == null || """^[-\d]\d*$""".toRegex().find(parameter) == null) {
+                    normalMsgFactory.makeReplyMsg(chatId, "unban-parameter")
+                } else {
+                    val ban = banListService.get(parameter.toLong())
+                    if (ban == null) {
+                        normalMsgFactory.makeReplyMsg(chatId, "unban-no-need")
+                    } else {
+                        banListService.delete(ban.uuid)
+                        normalMsgFactory.makeBanReplyMsg(chatId, "unban-success", parameter)
+                    }
+                }
+            }
+            else -> normalMsgFactory.makeReplyMsg(chatId, "can-not-understand")
         }
         sendMessage.disableWebPagePreview(true)
         sendMessage.parseMode(ParseMode.HTML)
@@ -194,7 +224,7 @@ class Approve(
                 val manager = request.update.callbackQuery().from()
                 val recordUUID = callbackData.replace("remove:", "")
                 recordService.deleteRecord(recordUUID, manager)
-                val msg = normalMsgFactory.makeClearMarkupMsg(request.chatId,request.messageId!!)
+                val msg = normalMsgFactory.makeClearMarkupMsg(request.chatId, request.messageId!!)
                 botProvider.send(msg)
             }
         }

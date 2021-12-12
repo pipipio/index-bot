@@ -91,6 +91,17 @@ class NormalMsgFactory(
         }
     }
 
+    fun makeBanReplyMsg(
+        chatId: Long,
+        replyType: String,
+        banChatId: String
+    ): SendMessage {
+        return SendMessage(
+            chatId,
+            replyService.messages[replyType]!! .replace("\\{chat-id\\}".toRegex(), banChatId)
+        )
+    }
+
     private fun makeReplyKeyboardMarkup(): ReplyKeyboardMarkup {
         // 每行countInRow数量个按钮
         val countInRow = 3

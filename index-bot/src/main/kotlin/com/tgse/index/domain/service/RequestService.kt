@@ -4,6 +4,7 @@ import com.pengrad.telegrambot.model.Chat
 import com.pengrad.telegrambot.model.Update
 import com.pengrad.telegrambot.model.User
 import com.tgse.index.area.Group
+import com.tgse.index.domain.repository.BanListRepository
 import com.tgse.index.infrastructure.provider.BotProvider
 import io.reactivex.rxjava3.core.Observable
 import io.reactivex.rxjava3.subjects.BehaviorSubject
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service
  */
 @Service
 class RequestService(
+    private val banListRepository: BanListRepository,
     private val botProvider: BotProvider,
     @Value("\${group.approve.id}")
     private val approveGroupChatId: Long
@@ -76,6 +78,11 @@ class RequestService(
         botProvider.updateObservable.subscribe(
             { update ->
                 val request = makeBotRequest(update) ?: return@subscribe
+                request.chatId?.apply {
+                    banListRepository.get(this)?.apply {
+                        return@subscribe
+                    }
+                }
                 requestSubject.onNext(request)
             },
             { throwable ->

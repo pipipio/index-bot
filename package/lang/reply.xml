@@ -333,10 +333,64 @@
     </msg>
     <msg>
         <type>
+            ban-parameter
+        </type>
+        <content>
+            错误的使用方式，请在命令后补充 ID。
+            例：
+            /ban@{bot.username} 825561111
+        </content>
+    </msg>
+    <msg>
+        <type>
+            ban-success
+        </type>
+        <content>
+            #{chat-id}
+            已加入黑名单，不再为其提供任何服务。 
+        </content>
+    </msg>
+    <msg>
+        <type>
+            unban-parameter
+        </type>
+        <content>
+            错误的使用方式，请在命令后补充 ID。
+            例：
+            /ban@{bot.username} 825561111
+        </content>
+    </msg>
+    <msg>
+        <type>
+            unban-no-need
+        </type>
+        <content>
+            黑名单中无记录，操作取消。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            unban-success
+        </type>
+        <content>
+            #{chat-id}
+            已从黑名单中移除，将正常为其提供服务。 
+        </content>
+    </msg>
+    <msg>
+        <type>
             empty
         </type>
         <content>
             暂无数据。
+        </content>
+    </msg>
+    <msg>
+        <type>
+            error
+        </type>
+        <content>
+            发生未知错误。
         </content>
     </msg>
     <msg>

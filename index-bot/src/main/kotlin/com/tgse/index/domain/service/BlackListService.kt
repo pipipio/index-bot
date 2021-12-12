@@ -4,10 +4,11 @@ import com.tgse.index.domain.repository.BlackListRepository
 import org.springframework.stereotype.Service
 
 /**
- * 黑名单
+ * 收录黑名单
  *
  * 无奈之举
  * 部分用户频繁恶意提交收录申请，给审核团队造成不必要的麻烦
+ * todo: 不应由 elasticsearch 实现
  */
 @Service
 class BlackListService(
