@@ -68,14 +68,16 @@ class TelegramRepositoryImpl(
                 }
                 val chat = getChatResponse.chat() ?: return null
                 val getChatMembersCountResponse = botProvider.send(getChatMembersCount)
-                if (!getChatMembersCountResponse.isOk) {
-                    val description = getChatResponse.description() ?: return null
-                    tooManyRequestRegex.find(description)?.let {
-                        return@forEach
-                    }
+                val membersCount = if (!getChatMembersCountResponse.isOk) {
+//                    val description = getChatMembersCountResponse.description() ?: return null
+//                    tooManyRequestRegex.find(description)?.let {
+//                        return@forEach
+//                    }
+                    0
+                } else {
+                    getChatMembersCountResponse.count()
                 }
-                val membersCount = getChatMembersCountResponse.count() ?: 0
-
+//                val membersCount = getChatMembersCountResponse.count() ?: 0
                 return when (chat.type()) {
                     Chat.Type.group, Chat.Type.supergroup ->
                         TelegramService.TelegramGroup(
