@@ -12,6 +12,7 @@ import com.tgse.index.domain.service.*
 import com.tgse.index.infrastructure.provider.BotProvider
 import org.slf4j.LoggerFactory
 import org.springframework.beans.factory.annotation.Value
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.util.*
 
@@ -24,6 +25,7 @@ class Approve(
     private val banListService: BanListService,
     private val enrollService: EnrollService,
     private val recordService: RecordService,
+    private val userService: UserService,
     private val awaitStatusService: AwaitStatusService,
     private val normalMsgFactory: NormalMsgFactory,
     private val recordMsgFactory: RecordMsgFactory,
@@ -50,7 +52,9 @@ class Approve(
                 try {
                     if (request !is RequestService.BotApproveRequest) return@subscribe
                     // 回执
-                    val commandRegexResult = commandRegex.find(request.update.message().text())
+                    val commandRegexResult =
+                        if (request.update.message()?.text() == null) null
+                        else commandRegex.find(request.update.message().text())
                     when {
                         request.update.callbackQuery() != null -> {
                             botProvider.sendTyping(request.chatId)
@@ -230,23 +234,19 @@ class Approve(
         }
     }
 
-    //    @Scheduled(zone = "Asia/Shanghai", cron = "0 0 8 * * ?")
-//    @Scheduled(zone = "Asia/Shanghai", cron = "0 39 15 * * ?")
-//    private fun statisticsDaily() {
-//        val countOfUser = userElastic.count()
-//        val dailyIncreaseOfUser = userElastic.dailyIncrease()
-//        val dailyActiveOfUser = userElastic.dailyActive()
-////        val countOfUser = userElastic.count()
-//        val countOfRecord = recordElastic.count()
-//
-//        val msg = msgFactory.makeStatisticsDailyReplyMsg(
-//            approveGroupChatId,
-//            dailyIncreaseOfUser,
-//            dailyActiveOfUser,
-//            countOfUser,
-//            countOfRecord
-//        )
-//        botProvider.send(msg)
-//    }
+    @Scheduled(zone = "Asia/Shanghai", cron = "0 0 8 * * ?")
+    private fun statisticsDaily() {
+        val (userCount, dailyIncrease, dailyActive) = userService.statistics()
+        val recordCount = recordService.count()
+
+        val msg = normalMsgFactory.makeStatisticsDailyReplyMsg(
+            approveGroupChatId,
+            dailyIncrease,
+            dailyActive,
+            userCount,
+            recordCount
+        )
+        botProvider.send(msg)
+    }
 
 }

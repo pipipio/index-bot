@@ -112,7 +112,7 @@ class UserRepositoryImpl(
         val dailyIncreaseQuery = QueryBuilders.rangeQuery("createTime").gte("now-24h")
         val dailyIncrease = elasticsearchProvider.countOfQuery(index, dailyIncreaseQuery)
         // 日活
-        val dailyActiveQuery = QueryBuilders.rangeQuery("update").gte("now-24h")
+        val dailyActiveQuery = QueryBuilders.rangeQuery("updateTime").gte("now-24h")
         val dailyActive = elasticsearchProvider.countOfQuery(index, dailyActiveQuery)
 
         return Triple(count, dailyIncrease, dailyActive)

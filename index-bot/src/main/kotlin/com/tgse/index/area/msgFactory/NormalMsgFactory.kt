@@ -1,6 +1,7 @@
 package com.tgse.index.area.msgFactory
 
 import com.pengrad.telegrambot.model.request.InlineKeyboardMarkup
+import com.pengrad.telegrambot.model.request.ParseMode
 import com.pengrad.telegrambot.model.request.ReplyKeyboardMarkup
 import com.pengrad.telegrambot.request.EditMessageReplyMarkup
 import com.pengrad.telegrambot.request.SendMessage
@@ -42,7 +43,7 @@ class NormalMsgFactory(
                 .replace("\\{dailyActiveOfUser\\}".toRegex(), dailyActiveOfUser.toString())
                 .replace("\\{countOfUser\\}".toRegex(), countOfUser.toString())
                 .replace("\\{countOfRecord\\}".toRegex(), countOfRecord.toString())
-        )
+        ).parseMode(ParseMode.HTML)
     }
 
     fun makeBlacklistJoinedReplyMsg(

@@ -110,25 +110,14 @@ class ElasticsearchProvider(
     /**
      * 文档数量
      */
-    fun countOfDocument(index:String): Long {
-        // elasticsearch bug?
-        // can't run
-
-//        val countRequest = CountRequest(index)
-//        countRequest.query(QueryBuilders.matchAllQuery())
-
-        val countRequest = CountRequest()
-        countRequest.indices(index)
-        val searchSourceBuilder = SearchSourceBuilder()
-        searchSourceBuilder.query(QueryBuilders.matchAllQuery())
-        countRequest.source(searchSourceBuilder)
+    fun countOfDocument(index: String): Long {
+        val countRequest = CountRequest(index)
+        countRequest.query(QueryBuilders.matchAllQuery())
         val response = client.count(countRequest, RequestOptions.DEFAULT)
         return response.count
     }
 
     fun countOfQuery(index: String, query: QueryBuilder): Long {
-        // elasticsearch bug?
-        // can't run
         val countRequest = CountRequest(index)
         countRequest.query(query)
         val response = client.count(countRequest, RequestOptions.DEFAULT)

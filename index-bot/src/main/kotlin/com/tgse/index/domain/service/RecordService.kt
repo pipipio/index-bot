@@ -77,6 +77,9 @@ class RecordService(
         deleteRecordSubject.onNext(Pair(record, manager))
     }
 
+    fun count(): Long {
+        return recordRepository.count()
+    }
 
     fun getRecord(uuid: String): Record? {
         return try {
